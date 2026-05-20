@@ -1,9 +1,9 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -59,11 +59,8 @@ func TestLoadVaultPath_NothingConfigured(t *testing.T) {
 	t.Setenv(EnvVar, "")
 
 	_, err := LoadVaultPath()
-	if err == nil {
-		t.Fatal("LoadVaultPath() returned nil error when nothing configured")
-	}
-	if !strings.Contains(err.Error(), EnvVar) || !strings.Contains(err.Error(), ConfigFileName) {
-		t.Errorf("error message does not mention both env var and config file: %v", err)
+	if !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("LoadVaultPath() = %v, want errors.Is(err, ErrNotConfigured)", err)
 	}
 }
 
@@ -73,8 +70,8 @@ func TestLoadVaultPath_EnvVarPathMissing(t *testing.T) {
 	t.Setenv(EnvVar, filepath.Join(dir, "does-not-exist"))
 
 	_, err := LoadVaultPath()
-	if err == nil {
-		t.Fatal("LoadVaultPath() returned nil error for missing env-var path")
+	if !errors.Is(err, ErrPathMissing) {
+		t.Fatalf("LoadVaultPath() = %v, want errors.Is(err, ErrPathMissing)", err)
 	}
 }
 
@@ -88,11 +85,8 @@ func TestLoadVaultPath_PathPointsAtFile(t *testing.T) {
 	t.Setenv(EnvVar, notADir)
 
 	_, err := LoadVaultPath()
-	if err == nil {
-		t.Fatal("LoadVaultPath() returned nil error for non-directory path")
-	}
-	if !strings.Contains(err.Error(), "not a directory") {
-		t.Errorf("error message does not say 'not a directory': %v", err)
+	if !errors.Is(err, ErrPathNotDir) {
+		t.Fatalf("LoadVaultPath() = %v, want errors.Is(err, ErrPathNotDir)", err)
 	}
 }
 

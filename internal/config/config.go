@@ -24,6 +24,22 @@ const ConfigFileName = "mind-palace.toml"
 // vault.path.
 const EnvVar = "MIND_PALACE_VAULT"
 
+// Sentinel errors. Wrap with %w when returning; callers check via
+// errors.Is. Message wording can evolve without breaking the contract.
+var (
+	// ErrNotConfigured is returned when neither MIND_PALACE_VAULT nor
+	// vault.path in mind-palace.toml is set.
+	ErrNotConfigured = errors.New("vault path not configured")
+
+	// ErrPathMissing is returned when a configured vault path does not
+	// exist on disk.
+	ErrPathMissing = errors.New("vault path does not exist")
+
+	// ErrPathNotDir is returned when a configured vault path exists but
+	// is not a directory.
+	ErrPathNotDir = errors.New("vault path is not a directory")
+)
+
 // LoadVaultPath resolves the vault path. MIND_PALACE_VAULT wins over
 // mind-palace.toml if both are set. The resolved path must point to an
 // existing directory.
@@ -38,8 +54,8 @@ func LoadVaultPath() (string, error) {
 	}
 	if p == "" {
 		return "", fmt.Errorf(
-			"no vault path configured: set %s env var or add vault.path to %s",
-			EnvVar, ConfigFileName,
+			"%w: set %s env var or add vault.path to %s",
+			ErrNotConfigured, EnvVar, ConfigFileName,
 		)
 	}
 	return verifyDir(p, fmt.Sprintf("vault.path in %s", ConfigFileName))
@@ -113,13 +129,13 @@ func verifyDir(path, source string) (string, error) {
 	}
 	info, err := os.Stat(abs)
 	if errors.Is(err, fs.ErrNotExist) {
-		return "", fmt.Errorf("%s points to %q which does not exist", source, abs)
+		return "", fmt.Errorf("%w: %s points to %q", ErrPathMissing, source, abs)
 	}
 	if err != nil {
 		return "", fmt.Errorf("stat %s (%s): %w", abs, source, err)
 	}
 	if !info.IsDir() {
-		return "", fmt.Errorf("%s points to %q which is not a directory", source, abs)
+		return "", fmt.Errorf("%w: %s points to %q", ErrPathNotDir, source, abs)
 	}
 	return abs, nil
 }
