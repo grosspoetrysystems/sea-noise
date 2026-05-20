@@ -20,15 +20,16 @@ Source of truth for the execution lifecycle. Update on every wave gate and phase
 - Phase kickoff: [v8-phase1-kickoff.md](v8-phase1-kickoff.md)
 - Phase lookahead (next horizon = Phase 2): [v8-phase2-lookahead.md](v8-phase2-lookahead.md)
 
-**Active wave:** `phase1_wave2` — P1-W2 — Project scaffold
-- Wave kickoff: [v8-phase1-wave2-kickoff.md](v8-phase1-wave2-kickoff.md)
-- Wave lookahead (next wave = P1-W3): [v8-phase1-wave3-lookahead.md](v8-phase1-wave3-lookahead.md)
+**Active wave:** `phase1_wave3` — P1-W3 — Vault + fixture (parallel: T03 || T09)
+- Wave kickoff: [v8-phase1-wave3-kickoff.md](v8-phase1-wave3-kickoff.md)
+- Wave lookahead: **none** — P1-W3 is the final wave of Phase 1. Next horizon is the Phase 2 lookahead, which is rebaselined into the Phase 2 kickoff at Phase 1 closeout.
 
 ## Past
 
 | Wave | Title | Closed at | Pointer |
 |------|-------|-----------|---------|
 | P1-W1 | Architecture alignment (T01) | commit `b294672` | [archive/v8-phase1-wave1-kickoff.md](archive/v8-phase1-wave1-kickoff.md) |
+| P1-W2 | Project scaffold (T02) | commit `9766ffa` | [archive/v8-phase1-wave2-kickoff.md](archive/v8-phase1-wave2-kickoff.md) |
 
 ## Future
 
