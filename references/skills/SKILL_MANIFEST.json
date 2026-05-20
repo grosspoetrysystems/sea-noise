@@ -1,0 +1,161 @@
+{
+	"schema": "mind-palace.skill_manifest.v1",
+	"vault_root": "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/mind-palace",
+	"updated_at": "2026-03-15",
+	"skills": [
+		{
+			"name": "inbox-pipeline",
+			"type": "pipeline",
+			"portable": true,
+			"description": "Full inbox processing chain: hydrate stubs, claude triage, youtube transcripts, index, todoist sync, daily/weekly catchup.",
+			"files": ["SKILL.md"],
+			"scripts": ["_scripts/run-daily-catchup.sh", "_scripts/run-weekly-catchup.sh"],
+			"depends_on": ["fetch-stubs", "sync-todoist", "rag-index"],
+			"schedule": "every 30 min (com.mindpalace.inbox.plist)",
+			"claude_required": true
+		},
+		{
+			"name": "daily-pipeline",
+			"type": "pipeline",
+			"portable": true,
+			"description": "Marker-gated daily synthesis: retry crawls, enrich transcripts, index, claude daily synthesis, signal queue, todoist sync.",
+			"files": ["SKILL.md"],
+			"scripts": ["_scripts/run-daily-catchup.sh"],
+			"depends_on": ["fetch-stubs", "summarize-transcripts", "rag-index", "generate-signal", "sync-todoist"],
+			"schedule": "daily 06:00 (com.mindpalace.daily.plist)",
+			"marker": "_meta/.daily-last-run",
+			"claude_required": true
+		},
+		{
+			"name": "weekly-pipeline",
+			"type": "pipeline",
+			"portable": true,
+			"description": "Marker-gated weekly synthesis: retry crawls, claude weekly synthesis, index, signal, audit, enrich, profile.",
+			"files": ["SKILL.md"],
+			"scripts": ["_scripts/run-weekly-catchup.sh"],
+			"depends_on": ["fetch-stubs", "rag-index", "generate-signal", "audit-links", "enrich-topics", "profile-entities"],
+			"schedule": "Sunday 09:00 (com.mindpalace.weekly.plist)",
+			"marker": "_meta/.weekly-last-run",
+			"claude_required": true
+		},
+		{
+			"name": "fetch-stubs",
+			"type": "tool",
+			"portable": true,
+			"description": "Hydrate mobile web clipper stubs via Cloudflare /crawl. Deduplicates against vault. Retry mode for failed crawls with exponential backoff.",
+			"files": ["SKILL.md"],
+			"scripts": ["_scripts/fetch-stub-content.py"],
+			"env": ["CF_ACCOUNT_ID", "CF_API_TOKEN"],
+			"claude_required": false
+		},
+		{
+			"name": "summarize-transcripts",
+			"type": "tool",
+			"portable": true,
+			"description": "Enrich YouTube transcripts and web clips with Claude-generated Research Context sections + auto-extracted domain tags.",
+			"files": ["SKILL.md"],
+			"scripts": ["_scripts/summarize-transcripts.py"],
+			"claude_required": true
+		},
+		{
+			"name": "sync-todoist",
+			"type": "tool",
+			"portable": false,
+			"description": "Push new todo notes to Todoist API. Pull completed tasks back. Routes by #work/#personal tags to project IDs.",
+			"files": ["SKILL.md"],
+			"scripts": ["_scripts/sync-todoist.py", "_scripts/sync-todoist-completions.py"],
+			"env": ["TODOIST_API_TOKEN", "TODOIST_WORK_ID", "TODOIST_PERSONAL_ID", "TODOIST_INBOX_ID"],
+			"claude_required": false
+		},
+		{
+			"name": "generate-signal",
+			"type": "tool",
+			"portable": true,
+			"description": "Score unconsumed notes by assertion overlap, rising topics, and recency. Generate signal/queue.md read queue dashboard.",
+			"files": ["SKILL.md"],
+			"scripts": ["_scripts/generate-signal.py"],
+			"claude_required": false
+		},
+		{
+			"name": "enrich-topics",
+			"type": "tool",
+			"portable": true,
+			"description": "Generate research briefs for topics reaching critical mass (5+ notes). Optional web research via Cloudflare /crawl.",
+			"files": ["SKILL.md"],
+			"scripts": ["_scripts/enrich-topics.py"],
+			"env": ["CF_ACCOUNT_ID", "CF_API_TOKEN"],
+			"claude_required": true
+		},
+		{
+			"name": "profile-entities",
+			"type": "tool",
+			"portable": true,
+			"description": "Auto-generate profiles for people, companies, concepts with 5+ vault mentions. Regex NER + Claude pre-filter.",
+			"files": ["SKILL.md"],
+			"scripts": ["_scripts/profile-entities.py"],
+			"claude_required": true
+		},
+		{
+			"name": "audit-links",
+			"type": "tool",
+			"portable": true,
+			"description": "Scan vault for broken [[wikilinks]]. Output report to _meta/broken-links.md.",
+			"files": ["SKILL.md"],
+			"scripts": ["_scripts/audit-links.py"],
+			"claude_required": false
+		},
+		{
+			"name": "rag-index",
+			"type": "tool",
+			"portable": true,
+			"description": "Embed vault notes into LanceDB vector store. Drop+recreate strategy. BAAI/bge-base-en-v1.5 embeddings.",
+			"files": ["SKILL.md"],
+			"scripts": ["_rag/indexer.py", "_rag/mcp_server.py"],
+			"env": ["HF_TOKEN"],
+			"claude_required": false
+		}
+	],
+	"slash_commands": [
+		{
+			"name": "reflect",
+			"file": ".claude/commands/reflect.md",
+			"description": "Interactive vault exploration + original thinking session"
+		},
+		{
+			"name": "research",
+			"file": ".claude/commands/research.md",
+			"description": "Trigger research enrichment pipeline for a topic or note"
+		},
+		{
+			"name": "signal",
+			"file": ".claude/commands/signal.md",
+			"description": "Curated reading recommendations from signal queue"
+		},
+		{
+			"name": "plunge",
+			"file": ".claude/commands/plunge.md",
+			"description": "Stochastic deep dive into vault history"
+		},
+		{
+			"name": "drift",
+			"file": ".claude/commands/drift.md",
+			"description": "Neutral mirror: gap between stated intentions and actual attention"
+		},
+		{
+			"name": "object",
+			"file": ".claude/commands/object.md",
+			"description": "Adversarial friction: argue against a position using vault evidence"
+		},
+		{
+			"name": "source",
+			"file": ".claude/commands/source.md",
+			"description": "Trace the evolution of an idea through the vault chronologically"
+		},
+		{
+			"name": "surface",
+			"file": ".claude/commands/surface.md",
+			"description": "Rescue buried thinking from daily notes and fleeting captures"
+		}
+	],
+	"bootstrap_note": "To bootstrap into a new vault: mind-palace init creates directory structure, generates CLAUDE.md + slash commands from templates, writes mind-palace.toml config, and optionally installs LaunchAgents. Scripts are bundled in the Go binary."
+}

@@ -1,0 +1,76 @@
+{
+  "schema": "tempor.skill_manifest.v2",
+  "canonical_root": ".agents/skills",
+  "updated_at": "2026-03-27",
+  "skills": [
+    {
+      "name": "brownfield-compress",
+      "cycle_phase": "research",
+      "portable": true,
+      "description": "Investigate a codebase and produce a compression artifact for downstream planning. The Research step.",
+      "files": ["SKILL.md"],
+      "has_references": true,
+      "references_dir": "references/",
+      "compatibility": ["claude-code", "codex", "cursor", "gemini"],
+      "metadata_version": "1.1.0"
+    },
+    {
+      "name": "post-council-handoff",
+      "cycle_phase": "implement",
+      "portable": true,
+      "description": "Execution entry-point anchor after plan decomposition. Translates a decomposed Tempor plan into a kickoff-ready frame, then hands off to lifecycle execution.",
+      "files": ["SKILL.md"],
+      "compatibility": ["claude-code", "codex", "cursor", "gemini"],
+      "metadata_version": "1.0.0"
+    },
+    {
+      "name": "plan-execution-lifecycle",
+      "cycle_phase": "implement",
+      "portable": true,
+      "description": "Execution orchestration for Tempor-generated plans. Kickoff, waves, gates, closeout ceremonies. The Implement step.",
+      "files": ["SKILL.md"],
+      "has_references": true,
+      "references_dir": "references/",
+      "compatibility": ["claude-code", "codex", "cursor", "gemini"],
+      "metadata_version": "1.1.0"
+    },
+    {
+      "name": "git-commit-workflow",
+      "cycle_phase": "implement",
+      "portable": true,
+      "description": "Commit discipline, staging, hook remediation. Required by plan-execution-lifecycle.",
+      "files": ["SKILL.md"],
+      "compatibility": ["claude-code", "codex", "cursor", "gemini"],
+      "metadata_version": "1.0.0"
+    },
+    {
+      "name": "pulse-save",
+      "cycle_phase": "continuity",
+      "portable": true,
+      "description": "Save handoff snapshot for the next agent/context window.",
+      "files": ["SKILL.md"],
+      "has_scripts": true,
+      "scripts_dir": "scripts/",
+      "compatibility": ["claude-code", "codex", "cursor", "gemini"],
+      "metadata_version": "1.0.0"
+    },
+    {
+      "name": "pulse-resume",
+      "cycle_phase": "continuity",
+      "portable": true,
+      "description": "Resume from a previous agent's handoff snapshot.",
+      "files": ["SKILL.md"],
+      "compatibility": ["claude-code", "codex", "cursor", "gemini"],
+      "metadata_version": "1.0.0"
+    },
+    {
+      "name": "content-notes-build-in-public",
+      "cycle_phase": "project-specific",
+      "portable": false,
+      "description": "Build-in-public content generation. Not portable — specific to tempor_codex.",
+      "files": ["SKILL.md"],
+      "metadata_version": "1.0.0"
+    }
+  ],
+  "bootstrap_note": "To bootstrap portable skills into a new workspace: read this manifest, filter for portable: true, and cp -r each skill directory into <target>/.agents/skills/. The init flow can automate this. For Claude Code, native shims should be projected into <target>/.claude/commands/<skill>.md, but .agents/skills/<skill>/SKILL.md remains the canonical source of truth."
+}
