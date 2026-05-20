@@ -8,6 +8,10 @@
 # shared live in tempor/plans/<plan_id>/ (no leading dot).
 .tempor/
 
+# Local agent state (per-machine metrics buffer for rule-injection hook).
+# Shared agent infrastructure lives at .agents/shared/ and is tracked.
+.agents/local/
+
 # Go build / test output
 *.exe
 *.dll
