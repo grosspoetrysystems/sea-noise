@@ -33,3 +33,34 @@ The right first move is:
 That preserves the original product boundary:
 
 runtime here, vault there.
+
+## Build, run, test
+
+The runtime is pure Go, CGO disabled, single static binary.
+
+```sh
+./scripts/build.sh          # CGO_ENABLED=0 go build ./...
+./scripts/test.sh           # go test ./...
+./scripts/grep-gates.sh     # enforce architectural invariants
+```
+
+Then point the binary at a vault:
+
+```sh
+# Either set an env var:
+MIND_PALACE_VAULT=/path/to/vault ./sea-noise --help
+
+# Or copy mind-palace.toml.example to mind-palace.toml and edit it:
+cp mind-palace.toml.example mind-palace.toml
+# uncomment and set vault.path = "/path/to/vault"
+```
+
+The env var wins if both are set.
+
+## Architectural invariants (enforced by `scripts/grep-gates.sh`)
+
+- No provider/model name string literals in Go source outside `internal/config` and tests.
+- No Python subprocess invocations.
+- No MCP server / transport imports.
+
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the substrate decision, package layout, and seam contracts.

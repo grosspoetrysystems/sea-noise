@@ -1,0 +1,7 @@
+# sea-noise reads vault.path here, or from the MIND_PALACE_VAULT
+# environment variable (env var wins if both are set). The resolved path
+# must point to an existing directory.
+#
+# Uncomment and edit:
+#
+# vault.path = "/path/to/your/vault"
