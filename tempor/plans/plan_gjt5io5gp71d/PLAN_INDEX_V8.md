@@ -20,13 +20,15 @@ Source of truth for the execution lifecycle. Update on every wave gate and phase
 - Phase kickoff: [v8-phase1-kickoff.md](v8-phase1-kickoff.md)
 - Phase lookahead (next horizon = Phase 2): [v8-phase2-lookahead.md](v8-phase2-lookahead.md)
 
-**Active wave:** `phase1_wave1` — P1-W1 — Architecture alignment
-- Wave kickoff: [v8-phase1-wave1-kickoff.md](v8-phase1-wave1-kickoff.md)
-- Wave lookahead (next wave = P1-W2): [v8-phase1-wave2-lookahead.md](v8-phase1-wave2-lookahead.md)
+**Active wave:** `phase1_wave2` — P1-W2 — Project scaffold
+- Wave kickoff: [v8-phase1-wave2-kickoff.md](v8-phase1-wave2-kickoff.md)
+- Wave lookahead (next wave = P1-W3): [v8-phase1-wave3-lookahead.md](v8-phase1-wave3-lookahead.md)
 
 ## Past
 
-_No closed phases yet — project start._
+| Wave | Title | Closed at | Pointer |
+|------|-------|-----------|---------|
+| P1-W1 | Architecture alignment (T01) | commit `b294672` | [archive/v8-phase1-wave1-kickoff.md](archive/v8-phase1-wave1-kickoff.md) |
 
 ## Future
 
@@ -55,6 +57,7 @@ _No closed phases yet — project start._
 
 ## Known prerequisites for execution start
 
-- [ ] **Repo is not yet a git repository.** Execution scaffolding requires `git init` so `git-commit-workflow` can attach, worktrees can be provisioned per `orchestration_contract.parallelism_model = worktree-first`, and the commit log can serve as the execution audit trail. **Block on `git init` before P1-W1 work begins.**
+- [x] Repo is a git repository (initialized at the `d6f8c57 init: docs and tooling baseline` commit).
 - [x] References staged: `references/scripts/` contains Python prototype.
 - [x] Retrieval architecture authority: `tempor/RETRIEVAL-RECOMMENDATION.md` exists.
+- [x] Architectural anchor committed: `ARCHITECTURE.md` at `b294672`.
