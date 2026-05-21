@@ -42,11 +42,11 @@ Implement under `internal/markdown/` and `internal/vault/` (the `doc.go` stubs f
 
 Author under `testdata/fixture-vault/` and `testdata/expected-*/`:
 
-- **Hand-authored markdown notes** covering the 7 case types observed in the prototype: stub clip, transcript note, assertion, fleeting note, weekly bloom, topic frequencies, signal queue. Plus structural variation that exercises FTS, tags, links, entities, assertions, recency.
-- **Pinned, not extracted.** No content from the user's live iCloud vault. Hand-authored from the prototype's behavioral conventions.
+- **Sourced from the live iCloud vault** (revised from the lookahead's "hand-authored" stance). 20–30 representative notes copied verbatim — higher parity fidelity than reimagined content, and faster than reconstructing realistic note shapes from scratch. Pinned at copy time; live vault edits do not propagate. Selection criteria: covers the 7 case types observed in the prototype (stub clip, transcript note, assertion, fleeting note, weekly bloom, topic frequencies, signal queue) plus structural variation (FTS-exercising body text, tags both frontmatter and inline, wikilinks plain/aliased/section, entities, assertions, recency variation).
 - **Expected output fixtures** under `testdata/expected-*/` (per-script subdirectory):
   - For each parity-critical surface (frontmatter parsing, link extraction, tag extraction, signal generation, etc.), capture what the Python prototype emits on the fixture vault, and commit it as a golden file.
   - Capture method documented in a `testdata/CAPTURING-FIXTURES.md` so the procedure is reproducible.
+- **Python capture environment**: use whatever Python is locally available at the maintainer's machine for the initial capture (single maintainer, one machine, this is acceptable). A pinned venv with `requirements.txt` is a deliberate future change — easy to add when (a) a second maintainer joins, (b) CI runs golden captures, or (c) the prototype's Python deps drift. Capture procedure should record the Python version and key package versions for forensic reproducibility even without a pinned venv.
 
 T09 produces no Go code beyond optionally a small `testdata/capture.sh` helper. The deliverables are committed markdown notes and committed golden output files.
 
@@ -75,11 +75,11 @@ T09 produces no Go code beyond optionally a small `testdata/capture.sh` helper. 
 - [ ] Tests honor the test-discipline rule: `t.TempDir()`, `t.Setenv()`, table-driven for transforms, `errors.Is` for sentinel errors, no `time.Sleep`, no premature mocking.
 
 **T09:**
-- [ ] `testdata/fixture-vault/` committed with hand-authored notes covering all 7 case types.
+- [ ] `testdata/fixture-vault/` committed with 20–30 notes copied from the live iCloud vault, covering all 7 case types.
 - [ ] Structural variation present: FTS-exercising text, tags (frontmatter + inline), wikilinks (plain + aliased + section), entities, assertions, recency variation.
-- [ ] `testdata/expected-*/` committed with golden outputs for representative surfaces (at minimum: frontmatter parsing, link extraction, tag extraction). Captured deterministically from the Python prototype.
-- [ ] `testdata/CAPTURING-FIXTURES.md` documents the capture procedure so updates are reproducible.
-- [ ] No content from the user's live iCloud vault. `grep -ri "iCloud~md~obsidian" testdata/` returns zero.
+- [ ] `testdata/expected-*/` committed with golden outputs for representative surfaces (at minimum: frontmatter parsing, link extraction, tag extraction). Captured deterministically from the Python prototype against the fixture vault.
+- [ ] `testdata/CAPTURING-FIXTURES.md` documents the capture procedure including Python version + key package versions for forensic reproducibility (pinned venv deferred per "single maintainer, single machine" stance).
+- [ ] Fixture notes are pinned (committed once; live vault edits do not propagate). Subsequent live-vault deltas are out of scope unless explicitly chosen.
 
 ## HITL gates
 
@@ -107,8 +107,8 @@ T09 produces no Go code beyond optionally a small `testdata/capture.sh` helper. 
 
 - T03 starting to implement FTS, SQLite, or any retrieval logic (drift into Phase 4 / T10). Strictly markdown parsing + vault walking only.
 - T03 making "improvements" to the Python prototype's extraction (drift away from parity-first). When in doubt, mirror the prototype's behavior even if it's not the ideal design.
-- T09 fixture vault using content from the live iCloud vault (drift away from pinned-and-deterministic). Hand-author, even if it's slower.
-- Fixture vault scope creeping toward "exhaustive coverage." Keep it representative, not exhaustive.
+- T09 fixture vault auto-syncing with the live iCloud vault (drift away from pinned-and-deterministic). Notes are copied once and committed; never wired to re-sync from the live vault.
+- Fixture vault scope creeping toward "exhaustive coverage." Keep it representative (20–30 notes), not exhaustive.
 - Tests using `time.Sleep`, `time.Now()`, `strings.Contains(err.Error(), ...)`, or any of the brittleness sources from the test-discipline rule.
 
 ## Skill attachments
