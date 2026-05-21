@@ -12,6 +12,11 @@
 # Shared agent infrastructure lives at .agents/shared/ and is tracked.
 .agents/local/
 
+# Python virtual environment for the parity capture procedure. The venv
+# self-ignores (Python writes .venv/.gitignore with `*`); this rule is
+# explicit for clarity. requirements.txt is committed.
+.venv/
+
 # Go build / test output
 *.exe
 *.dll
