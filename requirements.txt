@@ -7,9 +7,11 @@
 # Current scope (P1-W3): parity capture for the markdown engine uses pure
 # stdlib only — no third-party deps required.
 #
-# Future scope (P2-W2 / T05 onward): when porting the heavier prototype
-# scripts, add the deps they use here. Likely additions:
-#   python-frontmatter   # generate-signal, sync-todoist, summarize-transcripts
+# Used by the prototype scripts that capture-parity.py will eventually
+# invoke when more surfaces get ported:
+python-frontmatter
+
+# Future additions (when their respective scripts get ported):
 #   requests             # sync-todoist*
 #   youtube-transcript-api  # fetch-youtube-transcript
 #
