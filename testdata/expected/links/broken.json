@@ -1,0 +1,1470 @@
+[
+  {
+    "source": "AGENTS.md",
+    "target": "wikilink"
+  },
+  {
+    "source": "HOME.md",
+    "target": "plunge/today"
+  },
+  {
+    "source": "HOME.md",
+    "target": "bloom/assertion-tracker"
+  },
+  {
+    "source": "HOME.md",
+    "target": "_meta/pipeline-health"
+  },
+  {
+    "source": "HOME.md",
+    "target": "signal/queue"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-obsidian-claude-code-personal-os"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-supercharged-second-brain-claude-code"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-claude-code-obsidian-second-brain"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-claude-code-second-brain-private"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-why-2026-build-second-brain"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-obsidian-80-percent-nick-milo"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-ai-agent-thompson-sampling-content-curation"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-30-agentic-personal-ai-infrastructure-talk"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-30-personal-ai-infrastructure-repo"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-ai-tool-sprawl-orchestration"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-10-competitive-zero-human-companies"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-paperclip-zero-human-orchestration"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-beyond-context-engineering"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-data-agents-need-context"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-openclaw-lessons-agent-teams"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-anthropic-people-products-role"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-process-compression-bret-taylor"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-consumer-agents-mental-load"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-github-moment-for-agents"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-getting-started-openai-symphony"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-raising-an-agent-podcast"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-18-visa-agentic-commerce-cli"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-amp-coding-agent-manual"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-ai-enterprise-consulting-agent"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-19-standup-ai-effects-podcast"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-20-agent-zero-framework"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-20-zeroboot-vm-sandboxes"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-20-canopy-p2p-agent-chat"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-20-clawrouter-llm-router"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-21-clawflows-agent-workflows"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-21-ai-learning-recs"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-22-secure-ai-agent-api-credentials"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-23-agentic-ai-engineering-mistakes"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-25-posthog-building-ai-agents"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-25-karpathy-autoresearch-repo"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-25-karpathy-end-of-coding"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-25-agent-topologies-optimistic-indexes"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-27-agentorchestra-tea-protocol"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-30-diversity-thought-multi-agent-debate"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-30-hegelian-dialectic-skill"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-04-17-feynman-research-agent"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-04-17-skillsmp-agent-skills-marketplace"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-04-19-12-agentic-harness-patterns"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-04-27-ai-sandboxes-engineercodex"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-04-30-agentic-harness-engineering-arxiv"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-05-05-charlie-daemons-vs-agents"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-05-06-how-charlie-daemons-work"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-05-15-ai-daemons-engineering-maintenance"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-context-engineering-overview"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-beyond-context-engineering"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-data-agents-need-context"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-intent-engineering-beyond-context"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-intent-engineering-framework-agents"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-14-openviking-context-database"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-compression-aware-intelligence"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-mcp-introduction-architecture"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-model-context-protocol-overview"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-mcp-ui-interactive-components"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-garry-tan-mcp-criticism"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-mcp-dynamic-loading-response"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-mcporter-mcp-typescript-toolkit"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-mcp-security-argument"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-codelayer-ai-agent-ide"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-claude-code-meta-engineer-tips"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-baml-llm-function-framework"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-gsd-open-source-crowdfunding"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-building-claude-code-boris-cherny"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-14-agentmail-email-for-agents"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-google-a2ui-agent-generated-uis"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-15-ry-walker-ai-agent-research-index"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-google-advanced-search-operators"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-block-goose-ai-agent"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-agency-agents-ai-specialist-prompts"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-17-agentation-visual-feedback-tool"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-18-building-feature-claude-code"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-19-claude-code-skills-best-practices"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-25-claude-code-3-layer-config"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-31-opencode-workflow-senior-engineer"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-31-worktrunk-git-worktree-cli"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-31-lazygit-features-overview"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-05-07-zed-parallel-agents"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-05-08-rtk-cli-llm-token-proxy"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-05-09-portless-local-dev-urls"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-04-23-khalil-stemmler-typescript"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-05-08-x-post-jarrodwatts"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-05-08-x-post-milksandmatcha"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-20-stalwart-email-stack"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-harness-engineering-codex-agent-first"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-13-harness-first-agent-engineering"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-13-autonomous-verified-optimization"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-anti-fragile-infrastructure-coding-agents"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-17-hateoas-self-documenting-rest-apis"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-19-fp-intro-lambda-calculus"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-19-oo-vs-functional-paradigms"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-19-system-design-interview-crash-course"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-19-software-engineering-complexity-learning"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-05-15-structured-prompt-driven-development"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-04-18-energy-based-models-reasoning"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-ai-code-comprehension-crisis"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-ai-complex-codebase-challenges"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-19-ai-code-maintainability-research"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-15-mind-in-vitro-open-repositories"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-living-brain-cells-play-doom"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-graphrag-knowledge-graphs"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-rag-personal-knowledge-graph"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-vault-research-enrichment"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-11-cloudflare-crawl-endpoint"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-content-crawler-long-reads"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-12-file-system-not-all-you-need"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-14-openviking-context-database"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-mem0-scalable-agent-memory"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-16-everything-is-computer"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-17-notebooklm-knowledge-graph-research-stack"
+  },
+  {
+    "source": "atlas/ai-agents-and-tools.md",
+    "target": "2026-03-25-crafting-cognitive-niche"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-11-apple-razor-blade-ai-strategy"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-12-process-compression-bret-taylor"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-13-golden-age-solopreneur"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-13-the-new-primitives"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-04-17-what-will-be-scarce-alex-imas"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-13-atms-iphone-bank-tellers"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-13-acemoglu-wrong-ai-cognition"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-17-ai-adoption-lessons-from-history"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-12-ai-voting-proxies-private-governance"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-13-invisible-castles"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-18-visa-agentic-commerce-cli"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-25-ai-constitution-claude"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-27-agentorchestra-tea-protocol"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-05-05-charlie-daemons-vs-agents"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-05-06-how-charlie-daemons-work"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-05-15-ai-daemons-engineering-maintenance"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-05-15-structured-prompt-driven-development"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-26-trust-wall-ai-trust-networks"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-12-consumer-agents-mental-load"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-12-product-ideas"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-16-ai-enterprise-consulting-agent"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-16-systems-thinking-before-analytical-thinking"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-17-how-complexity-accumulates"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-12-ai-western-soul-tyler-cowen"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-13-datacenter-bible"
+  },
+  {
+    "source": "atlas/business-strategy-ai-economics.md",
+    "target": "2026-03-16-ai-bubble-skepticism"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-11-amber-case-calm-technology"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-13-team-human-sue-thomas-technobiophilia"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-13-team-human-vicki-robin-parable-of-tribes"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-19-restless-by-design-neuroscience-stillness"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-25-ai-constitution-claude"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-04-05-cia-factbook-eulogy"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-04-17-call-for-new-aesthetics"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-25-body-futurism"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-25-theory-of-social-forms"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-25-forms-of-life-centers"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-25-will-wright-proxi-mind-game"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-11-school-for-poetic-computation"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-11-akademie-schloss-solitude"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-11-poet-engineer-touchdesigner"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-17-kyle-mitchell-polyform-licenses"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-03-17-dip-interface-tools"
+  },
+  {
+    "source": "atlas/culture-technology-creative-practice.md",
+    "target": "2026-05-01-language-acquisition-essay"
+  },
+  {
+    "source": "bloom/2026-03-16-reflect.md",
+    "target": "2026-03-11-amber-case-calm-technology"
+  },
+  {
+    "source": "bloom/2026-03-16-reflect.md",
+    "target": "2026-03-11-school-for-poetic-computation"
+  },
+  {
+    "source": "bloom/2026-03-16-reflect.md",
+    "target": "2026-03-11-amber-case-calm-technology"
+  },
+  {
+    "source": "bloom/2026-03-16-reflect.md",
+    "target": "2026-03-13-invisible-castles"
+  },
+  {
+    "source": "bloom/2026-03-29-weekly.md",
+    "target": "2026-03-17-how-complexity-accumulates"
+  },
+  {
+    "source": "bloom/2026-03-29-weekly.md",
+    "target": "2026-03-17-ai-adoption-lessons-from-history"
+  },
+  {
+    "source": "bloom/2026-03-29-weekly.md",
+    "target": "2026-03-18-visa-agentic-commerce-cli"
+  },
+  {
+    "source": "bloom/2026-03-29-weekly.md",
+    "target": "2026-03-20-agent-zero-framework"
+  },
+  {
+    "source": "bloom/2026-03-29-weekly.md",
+    "target": "2026-03-22-secure-ai-agent-api-credentials"
+  },
+  {
+    "source": "bloom/2026-03-29-weekly.md",
+    "target": "2026-03-25-ai-constitution-claude"
+  },
+  {
+    "source": "bloom/2026-03-29-weekly.md",
+    "target": "2026-03-25-posthog-building-ai-agents"
+  },
+  {
+    "source": "bloom/2026-03-29-weekly.md",
+    "target": "2026-03-25-karpathy-autoresearch-repo"
+  },
+  {
+    "source": "bloom/2026-03-29-weekly.md",
+    "target": "2026-03-27-agentorchestra-tea-protocol"
+  },
+  {
+    "source": "bloom/2026-03-29-weekly.md",
+    "target": "wikilinks"
+  },
+  {
+    "source": "bloom/2026-05-17-weekly.md",
+    "target": "2026-05-15-ai-daemons-engineering-maintenance"
+  },
+  {
+    "source": "bloom/2026-05-17-weekly.md",
+    "target": "2026-05-15-structured-prompt-driven-development"
+  },
+  {
+    "source": "bloom/2026-05-17-weekly.md",
+    "target": "wikilink"
+  },
+  {
+    "source": "bloom/2026-05-18-weekly.md",
+    "target": "2026-05-17-profile-charlie-labs"
+  },
+  {
+    "source": "bloom/2026-05-18-weekly.md",
+    "target": "2026-05-17-profile-thompson-sampling"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-05-15-ai-daemons-engineering-maintenance"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-05-15-structured-prompt-driven-development"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-04-19-12-agentic-harness-patterns"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-04-27-ai-sandboxes-engineercodex"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-04-30-agentic-harness-engineering-arxiv"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-05-05-charlie-daemons-vs-agents"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-05-06-how-charlie-daemons-work"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-05-07-zed-parallel-agents"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-05-08-rtk-cli-llm-token-proxy"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-04-17-what-will-be-scarce-alex-imas"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-05-01-language-acquisition-essay"
+  },
+  {
+    "source": "bloom/assertion-tracker.md",
+    "target": "2026-05-15-structured-prompt-driven-development"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-12-ai-voting-proxies-private-governance"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-13-invisible-castles"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-12-engineering-liveness"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-12-ai-tool-sprawl-orchestration"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-16-systems-thinking-before-analytical-thinking"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-17-how-complexity-accumulates"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-17-ai-adoption-lessons-from-history"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-12-ai-voting-proxies-private-governance"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-13-invisible-castles"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-12-engineering-liveness"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-12-ai-tool-sprawl-orchestration"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-16-systems-thinking-before-analytical-thinking"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-17-how-complexity-accumulates"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-17-ai-adoption-lessons-from-history"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-11-amber-case-calm-technology"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-11-school-for-poetic-computation"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-11-amber-case-calm-technology"
+  },
+  {
+    "source": "export/assertions-and-synthesis.md",
+    "target": "2026-03-13-invisible-castles"
+  },
+  {
+    "source": "notes/assertions/2026-03-10-learning-music-at-thirty-six.md",
+    "target": "2026-05-01-language-acquisition-essay"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-12-ai-voting-proxies-private-governance"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-13-invisible-castles"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-12-engineering-liveness"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-12-ai-tool-sprawl-orchestration"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-16-systems-thinking-before-analytical-thinking"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-17-how-complexity-accumulates"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-17-ai-adoption-lessons-from-history"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-18-visa-agentic-commerce-cli"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-20-agent-zero-framework"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-22-secure-ai-agent-api-credentials"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-25-ai-constitution-claude"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-25-posthog-building-ai-agents"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-25-karpathy-autoresearch-repo"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-27-agentorchestra-tea-protocol"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-30-hegelian-dialectic-skill"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-31-opencode-workflow-senior-engineer"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-03-31-worktrunk-git-worktree-cli"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-04-19-12-agentic-harness-patterns"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-04-27-ai-sandboxes-engineercodex"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-04-30-agentic-harness-engineering-arxiv"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-05-05-charlie-daemons-vs-agents"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-05-06-how-charlie-daemons-work"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-05-07-zed-parallel-agents"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-05-08-rtk-cli-llm-token-proxy"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-05-15-ai-daemons-engineering-maintenance"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-governance-liveness-agentic-era.md",
+    "target": "2026-05-15-structured-prompt-driven-development"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-learn-functional-programming.md",
+    "target": "2026-03-19-fp-intro-lambda-calculus"
+  },
+  {
+    "source": "notes/assertions/2026-03-12-learn-functional-programming.md",
+    "target": "2026-03-19-oo-vs-functional-paradigms"
+  },
+  {
+    "source": "notes/assertions/2026-04-04-pandilla-character-studio-strategy.md",
+    "target": "2026-04-17-what-will-be-scarce-alex-imas"
+  },
+  {
+    "source": "notes/assertions/2026-04-04-pandilla-character-studio-strategy.md",
+    "target": "2026-05-01-language-acquisition-essay"
+  },
+  {
+    "source": "notes/assertions/2026-04-04-pandilla-character-studio-strategy.md",
+    "target": "2026-05-15-structured-prompt-driven-development"
+  },
+  {
+    "source": "notes/entities/2026-03-11-profile-alessio-fanelli.md",
+    "target": "2026-03-11-beyond-context-engineering"
+  },
+  {
+    "source": "notes/entities/2026-03-11-profile-alessio-fanelli.md",
+    "target": "2026-03-11-claude-code-meta-engineer-tips"
+  },
+  {
+    "source": "notes/entities/2026-03-11-profile-alessio-fanelli.md",
+    "target": "2026-03-11-context-engineering-overview"
+  },
+  {
+    "source": "notes/entities/2026-03-11-profile-alessio-fanelli.md",
+    "target": "2026-03-11-gsd-open-source-crowdfunding"
+  },
+  {
+    "source": "notes/entities/2026-03-11-profile-apple-intelligence.md",
+    "target": "Apple"
+  },
+  {
+    "source": "notes/entities/2026-03-11-profile-apple-intelligence.md",
+    "target": "Google"
+  },
+  {
+    "source": "notes/entities/2026-03-11-profile-apple-intelligence.md",
+    "target": "Milk Road"
+  },
+  {
+    "source": "notes/entities/2026-03-11-profile-apple-intelligence.md",
+    "target": "2026-03-11-apple-razor-blade-ai-strategy"
+  },
+  {
+    "source": "notes/entities/2026-03-11-profile-apple-silicon.md",
+    "target": "2026-03-11-profile-neural-engine"
+  },
+  {
+    "source": "notes/entities/2026-03-11-profile-apple-silicon.md",
+    "target": "2026-03-11-apple-razor-blade-ai-strategy"
+  },
+  {
+    "source": "notes/ideas/2026-03-11-auto-entity-profiles.md",
+    "target": "2026-03-11-vault-research-enrichment"
+  },
+  {
+    "source": "notes/ideas/2026-03-11-auto-entity-profiles.md",
+    "target": "2026-03-11-rag-personal-knowledge-graph"
+  },
+  {
+    "source": "notes/ideas/2026-03-11-tmux-agent-orchestration.md",
+    "target": "2026-03-11-codelayer-ai-agent-ide"
+  },
+  {
+    "source": "notes/references/2026-03-10-childs-play-sam-kriss.md",
+    "target": "2026-03-10-competitive-zero-human-companies"
+  },
+  {
+    "source": "notes/references/2026-03-10-childs-play-sam-kriss.md",
+    "target": "2026-03-11-paperclip-zero-human-orchestration"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-14-openviking-context-database"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-getting-started-openai-symphony"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-openclaw-lessons-agent-teams"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-github-moment-for-agents"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-anti-fragile-infrastructure-coding-agents"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-harness-engineering-codex-agent-first"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-process-compression-bret-taylor"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-15-ry-walker-ai-agent-research-index"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-amp-coding-agent-manual"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-13-autonomous-verified-optimization"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-16-mem0-scalable-agent-memory"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-mcp-security-argument"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-building-claude-code-boris-cherny"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-mcporter-mcp-typescript-toolkit"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-mcp-dynamic-loading-response"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-11-anthropic-people-products-role"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-garry-tan-mcp-criticism"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-google-a2ui-agent-generated-uis"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-11-intent-engineering-beyond-context"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-11-intent-engineering-framework-agents"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-consumer-agents-mental-load"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-14-agentmail-email-for-agents"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-raising-an-agent-podcast"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-13-harness-first-agent-engineering"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-product-ideas"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-13-invisible-castles"
+  },
+  {
+    "source": "notes/references/briefs/2026-03-16-ai-agents-research-brief.md",
+    "target": "2026-03-12-ai-tool-sprawl-orchestration"
+  },
+  {
+    "source": "plunge/today.md",
+    "target": "2026-03-12-product-ideas"
+  },
+  {
+    "source": "plunge/today.md",
+    "target": "2026-03-12-product-ideas"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-harness-engineering-codex-agent-first"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-google-a2ui-agent-generated-uis"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-19-claude-code-skills-best-practices"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-15-ry-walker-ai-agent-research-index"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-18-building-feature-claude-code"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-27-agentorchestra-tea-protocol"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-30-hegelian-dialectic-skill"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-05-15-ai-daemons-engineering-maintenance"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-16-why-2026-build-second-brain"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-getting-started-openai-symphony"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-google-a2ui-agent-generated-uis"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-19-claude-code-skills-best-practices"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-27-agentorchestra-tea-protocol"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-05-15-ai-daemons-engineering-maintenance"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-getting-started-openai-symphony"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-16-ai-agent-thompson-sampling-content-curation"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-github-moment-for-agents"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-anti-fragile-infrastructure-coding-agents"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-process-compression-bret-taylor"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-05-05-charlie-daemons-vs-agents"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-13-autonomous-verified-optimization"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-16-mem0-scalable-agent-memory"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-mcp-security-argument"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-19-restless-by-design-neuroscience-stillness"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-05-06-how-charlie-daemons-work"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-file-system-not-all-you-need"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-mcporter-mcp-typescript-toolkit"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-garry-tan-mcp-criticism"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-consumer-agents-mental-load"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-13-harness-first-agent-engineering"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-18-building-feature-claude-code"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-16-why-2026-build-second-brain"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-16-obsidian-claude-code-personal-os"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-19-oo-vs-functional-paradigms"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-19-fp-intro-lambda-calculus"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-16-supercharged-second-brain-claude-code"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-16-claude-code-obsidian-second-brain"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-16-claude-code-second-brain-private"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-openclaw-lessons-agent-teams"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-teaching-chess-to-toddlers"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-building-claude-code-boris-cherny"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-raising-an-agent-podcast"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-25-karpathy-end-of-coding"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-30-agentic-personal-ai-infrastructure-talk"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-31-opencode-workflow-senior-engineer"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-04-02-anthropic-long-running-agent-blueprint"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-19-software-engineering-complexity-learning"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-19-standup-ai-effects-podcast"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-16-obsidian-80-percent-nick-milo"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-11-ai-code-comprehension-crisis"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-harness-engineering-codex-agent-first"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-15-ry-walker-ai-agent-research-index"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-30-hegelian-dialectic-skill"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-22-secure-ai-agent-api-credentials"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-16-block-goose-ai-agent"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-mcp-dynamic-loading-response"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-17-agentation-visual-feedback-tool"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-amp-coding-agent-manual"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-system-design-case-studies"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-20-agent-zero-framework"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-25-claude-code-3-layer-config"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-25-karpathy-autoresearch-repo"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-30-personal-ai-infrastructure-repo"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-31-worktrunk-git-worktree-cli"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-04-08-nous-hermes-agent"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-04-09-agent-based-social-simulation"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-04-09-multi-agent-system-wikipedia"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-05-08-rtk-cli-llm-token-proxy"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-11-baml-llm-function-framework"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-19-system-design-interview-crash-course"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-15-ry-walker-ai-agent-research-index"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-18-building-feature-claude-code"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-27-agentorchestra-tea-protocol"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-30-hegelian-dialectic-skill"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-openclaw-lessons-agent-teams"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-engineering-liveness"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-teaching-chess-to-toddlers"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-amp-coding-agent-manual"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-building-claude-code-boris-cherny"
+  },
+  {
+    "source": "signal/queue.md",
+    "target": "2026-03-12-system-design-case-studies"
+  }
+]
