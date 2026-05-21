@@ -46,7 +46,7 @@ Author under `testdata/fixture-vault/` and `testdata/expected-*/`:
 - **Expected output fixtures** under `testdata/expected-*/` (per-script subdirectory):
   - For each parity-critical surface (frontmatter parsing, link extraction, tag extraction, signal generation, etc.), capture what the Python prototype emits on the fixture vault, and commit it as a golden file.
   - Capture method documented in a `testdata/CAPTURING-FIXTURES.md` so the procedure is reproducible.
-- **Python capture environment**: use whatever Python is locally available at the maintainer's machine for the initial capture (single maintainer, one machine, this is acceptable). A pinned venv with `requirements.txt` is a deliberate future change — easy to add when (a) a second maintainer joins, (b) CI runs golden captures, or (c) the prototype's Python deps drift. Capture procedure should record the Python version and key package versions for forensic reproducibility even without a pinned venv.
+- **Python capture environment**: pinned venv at `.venv/` (gitignored) with `requirements.txt` (committed) listing the deps the prototype scripts need. Setup is one line: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`. Pinning matters because golden files are reproducibility artifacts — without pinned deps, a recapture months later might produce different bytes for reasons unrelated to the prototype's behavior. The capture script (`testdata/capture.sh` or similar) runs scripts inside the venv. Capture procedure documents the Python version and dep versions in `CAPTURING-FIXTURES.md`.
 
 T09 produces no Go code beyond optionally a small `testdata/capture.sh` helper. The deliverables are committed markdown notes and committed golden output files.
 
@@ -78,7 +78,7 @@ T09 produces no Go code beyond optionally a small `testdata/capture.sh` helper. 
 - [ ] `testdata/fixture-vault/` committed with 20–30 notes copied from the live iCloud vault, covering all 7 case types.
 - [ ] Structural variation present: FTS-exercising text, tags (frontmatter + inline), wikilinks (plain + aliased + section), entities, assertions, recency variation.
 - [ ] `testdata/expected-*/` committed with golden outputs for representative surfaces (at minimum: frontmatter parsing, link extraction, tag extraction). Captured deterministically from the Python prototype against the fixture vault.
-- [ ] `testdata/CAPTURING-FIXTURES.md` documents the capture procedure including Python version + key package versions for forensic reproducibility (pinned venv deferred per "single maintainer, single machine" stance).
+- [ ] `testdata/CAPTURING-FIXTURES.md` documents the capture procedure including pinned Python version and venv setup. `requirements.txt` committed at repo root with prototype deps. `.venv/` gitignored.
 - [ ] Fixture notes are pinned (committed once; live vault edits do not propagate). Subsequent live-vault deltas are out of scope unless explicitly chosen.
 
 ## HITL gates
