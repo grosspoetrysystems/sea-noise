@@ -20,9 +20,9 @@ Source of truth for the execution lifecycle. Update on every wave gate and phase
 - Phase kickoff: [v8-phase2-kickoff.md](v8-phase2-kickoff.md)
 - Phase lookahead (next horizon = Phase 3): [v8-phase3-lookahead.md](v8-phase3-lookahead.md)
 
-**Active wave:** `phase2_wave1` — P2-W1 — Clients + Embedder interface (T04)
-- Wave kickoff: [v8-phase2-wave1-kickoff.md](v8-phase2-wave1-kickoff.md)
-- Wave lookahead (next wave = P2-W2): [v8-phase2-wave2-lookahead.md](v8-phase2-wave2-lookahead.md)
+**Active wave:** `phase2_wave2` — P2-W2 — Pipeline commands (T05, narrowed to audit-links + generate-signal)
+- Wave kickoff: [v8-phase2-wave2-kickoff.md](v8-phase2-wave2-kickoff.md)
+- Wave lookahead: **none** — P2-W2 is the final wave of Phase 2. Next horizon is the Phase 3 lookahead.
 
 ## Past
 
@@ -32,6 +32,7 @@ Source of truth for the execution lifecycle. Update on every wave gate and phase
 | P1-W1 | Architecture alignment (T01) | commit `b294672` | [archive/v8-phase1-wave1-kickoff.md](archive/v8-phase1-wave1-kickoff.md) |
 | P1-W2 | Project scaffold (T02) | commit `9766ffa` | [archive/v8-phase1-wave2-kickoff.md](archive/v8-phase1-wave2-kickoff.md) |
 | P1-W3 | Vault + fixture (T03, T09) | commit `b5009ff` | [archive/v8-phase1-wave3-kickoff.md](archive/v8-phase1-wave3-kickoff.md) |
+| P2-W1 | Clients + Embedder iface (T04) | commit `6818ba2` | [archive/v8-phase2-wave1-kickoff.md](archive/v8-phase2-wave1-kickoff.md) |
 
 ## Future
 
