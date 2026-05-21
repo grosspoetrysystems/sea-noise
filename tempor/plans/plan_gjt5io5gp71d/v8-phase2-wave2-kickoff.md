@@ -34,7 +34,22 @@ That work belongs in a dedicated wave with its own design constraints, not bundl
 
 In-scope for THIS wave:
 - **`audit-links`**: vault walk + wikilink extraction (already implemented in T03) + report writer. Output written to `_meta/broken-links.md` per prototype.
-- **`generate-signal`**: frontmatter aggregation for the signal queue. Reads vault, groups by criteria, writes report.
+- ~~**`generate-signal`**: frontmatter aggregation for the signal queue.~~ **Deferred during execution** (see "Mid-execution deferral" below).
+
+## Mid-execution deferral — generate-signal
+
+After porting `audit-links`, surveying `generate-signal.py` revealed scope that wasn't on the kickoff:
+
+- The prototype uses `python-frontmatter` (PyYAML-backed) which parses block-style YAML lists, typed scalars, nested values. Sea Noise's existing `markdown.ParseFrontmatter` only handles the indexer's narrow subset (title + tags inline-list).
+- Implementing parity requires either a full Go YAML library (`gopkg.in/yaml.v3`) or a substantially extended hand-rolled parser.
+- The implementation itself is ~280 lines of Python with content-type inference, scoring against assertion tags and rising topics, multiple output buckets, and `_meta/topic-frequencies.md` parsing. The Go port is realistically 400–500 lines plus parity tests plus capture extension.
+
+**Decision:** deferred generate-signal to a follow-up wave. Reasoning:
+- generate-signal produces a personal-vault read queue — useful artifact for the end user, but not architecturally load-bearing for Phase 4 (retrieval) or Phase 5 (cutover).
+- Phase 3 (router seam + Claude integration) is more aligned with the next milestone (AI surfaces unlock T07, T08).
+- The infrastructure prep IS done in this wave: `gopkg.in/yaml.v3` Go dep added, `internal/markdown.ParseFrontmatterYAML` ready, `python-frontmatter` in `requirements.txt`. The eventual port has fewer unknowns.
+
+When generate-signal is picked up later, it slots into a dedicated wave (P5-W? or a Phase 3 sub-wave). Document the chosen home at Phase 2 closeout.
 
 ## Tracks
 
