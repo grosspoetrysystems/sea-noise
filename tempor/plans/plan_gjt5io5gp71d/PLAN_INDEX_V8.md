@@ -16,13 +16,11 @@ Source of truth for the execution lifecycle. Update on every wave gate and phase
 
 ## Present
 
-**Active phase:** `phase2_deterministic_surface` — Phase 2 — Deterministic surface parity port
-- Phase kickoff: [v8-phase2-kickoff.md](v8-phase2-kickoff.md)
-- Phase lookahead (next horizon = Phase 3): [v8-phase3-lookahead.md](v8-phase3-lookahead.md)
+**Active phase:** `phase3_router_seam` — Phase 3 — Router seam + LocalRouter
+- Phase kickoff: [v8-phase3-kickoff.md](v8-phase3-kickoff.md)
+- Phase lookahead (next horizon = Phase 4): [v8-phase4-lookahead.md](v8-phase4-lookahead.md)
 
-**Active wave:** `phase2_wave2` — P2-W2 — Pipeline commands (T05, narrowed to audit-links + generate-signal)
-- Wave kickoff: [v8-phase2-wave2-kickoff.md](v8-phase2-wave2-kickoff.md)
-- Wave lookahead: **none** — P2-W2 is the final wave of Phase 2. Next horizon is the Phase 3 lookahead.
+**Active wave:** none yet — Phase 3 just promoted active. P3-W1 (T06 inference router seam) gets its wave kickoff when work begins.
 
 ## Past
 
@@ -33,13 +31,14 @@ Source of truth for the execution lifecycle. Update on every wave gate and phase
 | P1-W2 | Project scaffold (T02) | commit `9766ffa` | [archive/v8-phase1-wave2-kickoff.md](archive/v8-phase1-wave2-kickoff.md) |
 | P1-W3 | Vault + fixture (T03, T09) | commit `b5009ff` | [archive/v8-phase1-wave3-kickoff.md](archive/v8-phase1-wave3-kickoff.md) |
 | P2-W1 | Clients + Embedder iface (T04) | commit `6818ba2` | [archive/v8-phase2-wave1-kickoff.md](archive/v8-phase2-wave1-kickoff.md) |
+| P2-W2 | Pipeline commands (T05 — audit-links shipped, generate-signal deferred) | commit `48c9d1c` | [archive/v8-phase2-wave2-kickoff.md](archive/v8-phase2-wave2-kickoff.md) |
+| Phase 2 | Deterministic surface parity port | commit `48c9d1c` | [archive/v8-phase2-kickoff.md](archive/v8-phase2-kickoff.md) |
 
 ## Future
 
 | Phase | Title | Status | Pointer |
 |-------|-------|--------|---------|
-| `phase3_router_seam` | Router seam + LocalRouter | Lookahead drafted | [v8-phase3-lookahead.md](v8-phase3-lookahead.md) |
-| `phase4_sqlite_retrieval` | SQLite-first retrieval engine | Not yet groomed | — |
+| `phase4_sqlite_retrieval` | SQLite-first retrieval engine | Lookahead drafted | [v8-phase4-lookahead.md](v8-phase4-lookahead.md) |
 | `phase5_parity_cutover` | Parity proof + cutover | Not yet groomed | — |
 
 ## Source artifacts (permanent, not archived)
