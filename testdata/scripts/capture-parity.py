@@ -168,3 +168,60 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# === audit-links report — copied from references/scripts/audit-links.py ===
+
+AUDIT_REPORT_DATE = "2026-05-21"  # fixed for golden determinism; bump deliberately
+
+
+def capture_audit_links_report():
+    """Capture the audit-links report content (without writing to vault)."""
+    target = EXPECTED_ROOT / "audit-links"
+    target.mkdir(parents=True, exist_ok=True)
+
+    # Reuse the walk + LINKS_EXCLUDE_DIRS already defined above.
+    all_stems = set()
+    for path in walk(FIXTURE_VAULT, LINKS_EXCLUDE_DIRS):
+        all_stems.add(path.stem.lower())
+
+    broken = []
+    for path in walk(FIXTURE_VAULT, LINKS_EXCLUDE_DIRS):
+        rel = str(path.relative_to(FIXTURE_VAULT))
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        for match in WIKILINK.finditer(text):
+            target_stem = match.group(1).strip()
+            if target_stem.lower() not in all_stems:
+                broken.append((rel, target_stem))
+
+    lines = [f"# Broken Links Audit — {AUDIT_REPORT_DATE}\n"]
+    if not broken:
+        lines.append("No broken links found.\n")
+    else:
+        lines.append(f"Found **{len(broken)}** broken wikilinks:\n")
+        grouped = {}
+        for source, t in broken:
+            grouped.setdefault(source, []).append(t)
+        for source in sorted(grouped):
+            lines.append(f"\n### {source}")
+            for t in sorted(grouped[source]):
+                lines.append(f"- [[{t}]]")
+        lines.append("")
+
+    (target / "report.md").write_text("\n".join(lines), encoding="utf-8")
+    print(f"audit-links: {len(broken)} broken -> {target}/report.md")
+
+
+# Re-bind main to include the new capture.
+_prev_main = main
+
+
+def main():  # noqa: F811
+    _prev_main()
+    capture_audit_links_report()
+
+if __name__ == "__main__":
+    capture_audit_links_report()

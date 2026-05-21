@@ -28,11 +28,20 @@ func main() {
 		return
 	}
 
-	// Subcommands land in later waves. Until then any positional argument
-	// is an unknown subcommand.
-	fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", flag.Arg(0))
-	printUsage()
-	os.Exit(2)
+	sub := flag.Arg(0)
+	rest := flag.Args()[1:]
+
+	switch sub {
+	case "audit-links":
+		if err := runAuditLinks(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise audit-links: %v\n", err)
+			os.Exit(1)
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
+		printUsage()
+		os.Exit(2)
+	}
 }
 
 func printUsage() {
@@ -46,7 +55,7 @@ Flags:
   --version    print version and exit
 
 Subcommands:
-  (none yet — added in subsequent waves)
+  audit-links    scan vault for broken [[wikilinks]], write report to _meta/broken-links.md
 
 Config:
   Vault path is resolved from MIND_PALACE_VAULT env or vault.path in
