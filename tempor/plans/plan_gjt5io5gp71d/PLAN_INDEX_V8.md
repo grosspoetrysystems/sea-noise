@@ -20,7 +20,7 @@ Source of truth for the execution lifecycle. Update on every wave gate and phase
 - Phase kickoff: [v8-phase3-kickoff.md](v8-phase3-kickoff.md)
 - Phase lookahead (next horizon = Phase 4): [v8-phase4-lookahead.md](v8-phase4-lookahead.md)
 
-**Active wave:** none yet — Phase 3 just promoted active. P3-W1 (T06 inference router seam) gets its wave kickoff when work begins.
+**Active wave:** none — P3-W1 closed (T06 shipped at `91ce940`). P3-W2 (T07 — Claude integration + AI command wrappers) gets its wave kickoff when work begins.
 
 ## Past
 
@@ -33,6 +33,7 @@ Source of truth for the execution lifecycle. Update on every wave gate and phase
 | P2-W1 | Clients + Embedder iface (T04) | commit `6818ba2` | [archive/v8-phase2-wave1-kickoff.md](archive/v8-phase2-wave1-kickoff.md) |
 | P2-W2 | Pipeline commands (T05 — audit-links shipped, generate-signal deferred) | commit `48c9d1c` | [archive/v8-phase2-wave2-kickoff.md](archive/v8-phase2-wave2-kickoff.md) |
 | Phase 2 | Deterministic surface parity port | commit `48c9d1c` | [archive/v8-phase2-kickoff.md](archive/v8-phase2-kickoff.md) |
+| P3-W1 | Inference router seam (T06) | commit `91ce940` | [archive/v8-phase3-wave1-kickoff.md](archive/v8-phase3-wave1-kickoff.md) |
 
 ## Future
 
