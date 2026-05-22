@@ -7,9 +7,7 @@ This file is the team-shared agent entry point. `CLAUDE.md` imports it via `@AGE
 ## Where things live
 
 - **Architecture** — [ARCHITECTURE.md](./ARCHITECTURE.md): retrieval substrate, vault SQL schema, retrieval router interface, Embedder interface, inference router seam, hard binary constraints, fallback chain. Authoritative on design.
-- **Retrieval decision** — [tempor/RETRIEVAL-RECOMMENDATION.md](./tempor/RETRIEVAL-RECOMMENDATION.md): SQLite-first, FTS5/BM25 + structural signals. Highest precedence on retrieval substrate questions.
 - **Python prototype reference** — [`references/scripts/`](./references/) and `references/scripts/_rag/`: the canonical specification for parity. When ported behavior is ambiguous, run the Python script against the fixture vault and match its output.
-- **Plan & execution scaffolding** — [`tempor/plans/plan_gjt5io5gp71d/`](./tempor/plans/plan_gjt5io5gp71d/): `PLAN_INDEX_V8.md` is the live source of truth for active phase, active wave, and what's queued next.
 - **Project docs** — [`docs/`](./docs/): notes accrued during planning (migration, language/product shape, etc.). Reference material, not load-bearing.
 
 ## Repo layout for agent infra

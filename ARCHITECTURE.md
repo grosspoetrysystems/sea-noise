@@ -27,7 +27,7 @@ Out of scope:
 
 **Primary substrate: SQLite (`modernc.org/sqlite`) with FTS5/BM25.**
 
-Per `tempor/RETRIEVAL-RECOMMENDATION.md`, the rewrite is not centered on classical embedding-heavy RAG. It is a local retrieval and context-assembly runtime over a markdown vault. The substrate that fits that shape is SQLite with FTS5/BM25 for keyword retrieval, augmented by first-class structural signals derived from the vault.
+The rewrite is not centered on classical embedding-heavy RAG. It is a local retrieval and context-assembly runtime over a markdown vault. The substrate that fits that shape is SQLite with FTS5/BM25 for keyword retrieval, augmented by first-class structural signals derived from the vault.
 
 Structural signals (each is a first-class SQL-derived feature, not a vector-space artifact):
 
@@ -214,12 +214,7 @@ Parity is judged behaviorally: Go output diffs zero against captured Python prot
 
 ## 10. Boundaries with adjacent tooling
 
-Sea Noise is a runtime. Tooling that helps produce or consume its outputs lives outside it.
-
-| Tool | Role | Boundary |
-|------|------|----------|
-| **Tempor** | Multi-model planning / decomposition engine | External. Not imported. Not invoked at runtime. Planning artifacts live in `.tempor/` (untracked) and `tempor/plans/` (tracked execution scaffolding). |
-| **HITL control surface** | UI control plane for autonomous-agent oversight | Separate forthcoming product. Sea Noise does not build UI. Approval / oversight / reporting-back primitives are not in this runtime. |
+Sea Noise is a runtime. The HITL control surface (UI control plane for autonomous-agent oversight) is a separate forthcoming product — Sea Noise does not build UI, and approval / oversight / reporting-back primitives are not in this runtime.
 
 The inference router seam (§6) is harness-agnostic: it is not designed to be replaced by any particular external system. If a future caller wants to consume the seam, the contract is what is defined in §6 — nothing in this architecture anticipates a specific replacement.
 
@@ -242,9 +237,7 @@ This is not a stylistic preference — it is an architectural commitment. If a m
 
 For every architectural question that this document does not explicitly answer:
 
-- **Retrieval substrate decisions:** `tempor/RETRIEVAL-RECOMMENDATION.md` is the canonical source.
 - **Parity behavior:** the Python prototype in `references/scripts/` is the canonical specification. Run it against the golden fixture vault to see what the Go port must reproduce.
-- **Inference router contract:** the interface task in Phase 3 (T06) defines `InferenceRequest`, `InferenceDecision`, and the stub's behavior. This document fixes only the seam's structural properties (§6).
-- **Plan-level scope and waves:** `tempor/plans/plan_gjt5io5gp71d/` (PLAN_INDEX, active phase kickoff, active wave kickoff). The decomposition source artifact lives in `.tempor/plans/.../versions/v8/decompositions/decomp_v1/plan.json`.
+- **Inference router contract:** the `internal/ai/inferencerouter` package defines `Router`, `InferenceRequest`, `InferenceDecision`, and the stub's behavior. This document fixes only the seam's structural properties (§6).
 
-If a later doc or task acceptance criterion contradicts this document, this document is the lower-precedence source. The Python prototype's behavior outranks all docs, and `RETRIEVAL-RECOMMENDATION.md` outranks this doc on retrieval substrate decisions. This doc is the durable architectural anchor for the rewrite as a whole — but it is not the highest-precedence source on the questions where a more authoritative source exists.
+If a later doc or task acceptance criterion contradicts this document, this document is the lower-precedence source. The Python prototype's behavior outranks all docs. This doc is the durable architectural anchor for the rewrite — but where the Python prototype's behavior settles a question, the prototype wins.
