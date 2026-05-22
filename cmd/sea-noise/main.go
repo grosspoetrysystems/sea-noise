@@ -37,6 +37,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sea-noise audit-links: %v\n", err)
 			os.Exit(1)
 		}
+	case "summarize-transcripts":
+		if err := runSummarizeTranscripts(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise summarize-transcripts: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
 		printUsage()
@@ -55,7 +60,8 @@ Flags:
   --version    print version and exit
 
 Subcommands:
-  audit-links    scan vault for broken [[wikilinks]], write report to _meta/broken-links.md
+  audit-links              scan vault for broken [[wikilinks]], write report to _meta/broken-links.md
+  summarize-transcripts    enrich notes containing ## Transcript with a ## Research Context section via the configured inference CLI
 
 Config:
   Vault path is resolved from MIND_PALACE_VAULT env or vault.path in
