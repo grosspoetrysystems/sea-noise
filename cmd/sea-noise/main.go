@@ -42,6 +42,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sea-noise summarize-transcripts: %v\n", err)
 			os.Exit(1)
 		}
+	case "profile-entities":
+		if err := runProfileEntities(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise profile-entities: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
 		printUsage()
@@ -62,6 +67,7 @@ Flags:
 Subcommands:
   audit-links              scan vault for broken [[wikilinks]], write report to _meta/broken-links.md
   summarize-transcripts    enrich notes containing ## Transcript with a ## Research Context section via the configured inference CLI
+  profile-entities         generate an entity profile from vault mentions; manual mode only (auto-mode is a follow-up port)
 
 Config:
   Vault path is resolved from MIND_PALACE_VAULT env or vault.path in
