@@ -63,6 +63,11 @@ type RetrieveRequest struct {
 	// ModeDeterministicContextBuild.
 	WorkflowID string
 
+	// Depth is the BFS depth cap for ModeGraphExpansion. Zero means the
+	// router default (1 — direct neighbors only). GraphExpansion follows
+	// both outgoing wikilinks and backlinks per ARCHITECTURE §4.
+	Depth int
+
 	// Filters: a result must satisfy all non-empty filters.
 	Tags      []string   // any-of
 	NoteTypes []string   // any-of
@@ -155,7 +160,9 @@ func (r *SQLiteRouter) Retrieve(ctx context.Context, req RetrieveRequest) (Retri
 		return r.directLookup(ctx, req)
 	case ModeFTSSearch:
 		return r.ftsSearch(ctx, req, limit)
-	case ModeGraphExpansion, ModeDeterministicContextBuild, ModeOptionalSemanticExpansion:
+	case ModeGraphExpansion:
+		return r.graphExpansion(ctx, req, limit)
+	case ModeDeterministicContextBuild, ModeOptionalSemanticExpansion:
 		return RetrieveResponse{Mode: mode}, fmt.Errorf("%w: %s", ErrUnsupportedMode, mode)
 	}
 	return RetrieveResponse{Mode: mode}, fmt.Errorf("%w: %s", ErrUnsupportedMode, mode)
@@ -204,15 +211,48 @@ func (r *SQLiteRouter) ftsSearch(ctx context.Context, req RetrieveRequest, limit
 		return RetrieveResponse{Mode: ModeFTSSearch}, ErrEmptyRequest
 	}
 
-	rows, err := r.DB.QueryContext(ctx, `
+	// Build a filterable query. The chunk-level FTS5 match is always
+	// applied; tag/type/time filters narrow the candidate notes via
+	// correlated EXISTS clauses and a notes JOIN.
+	var sb strings.Builder
+	sb.WriteString(`
 		SELECT c.note_id, c.id, bm25(chunks_fts) AS score,
 		       snippet(chunks_fts, 0, '«', '»', '…', 16) AS snip
 		FROM chunks_fts
 		JOIN chunks c ON c.id = chunks_fts.rowid
-		WHERE chunks_fts MATCH ?
-		ORDER BY score ASC
-		LIMIT ?
-	`, req.Query, limit)
+		JOIN notes  n ON n.id = c.note_id
+		WHERE chunks_fts MATCH ?`)
+	args := []any{req.Query}
+
+	if len(req.Tags) > 0 {
+		sb.WriteString(` AND EXISTS (SELECT 1 FROM tags t WHERE t.note_id = n.id AND t.tag IN (`)
+		sb.WriteString(placeholders(len(req.Tags)))
+		sb.WriteString(`))`)
+		for _, t := range req.Tags {
+			args = append(args, t)
+		}
+	}
+	if len(req.NoteTypes) > 0 {
+		sb.WriteString(` AND n.type IN (`)
+		sb.WriteString(placeholders(len(req.NoteTypes)))
+		sb.WriteString(`)`)
+		for _, t := range req.NoteTypes {
+			args = append(args, t)
+		}
+	}
+	if req.Since != nil {
+		sb.WriteString(` AND n.mtime IS NOT NULL AND n.mtime >= ?`)
+		args = append(args, req.Since.Unix())
+	}
+	if req.Until != nil {
+		sb.WriteString(` AND n.mtime IS NOT NULL AND n.mtime <= ?`)
+		args = append(args, req.Until.Unix())
+	}
+
+	sb.WriteString(` ORDER BY score ASC LIMIT ?`)
+	args = append(args, limit)
+
+	rows, err := r.DB.QueryContext(ctx, sb.String(), args...)
 	if err != nil {
 		return RetrieveResponse{Mode: ModeFTSSearch}, fmt.Errorf("%w: %v", ErrRetrieve, err)
 	}
@@ -230,4 +270,192 @@ func (r *SQLiteRouter) ftsSearch(ctx context.Context, req RetrieveRequest, limit
 		return RetrieveResponse{Mode: ModeFTSSearch}, fmt.Errorf("%w: rows: %v", ErrRetrieve, err)
 	}
 	return resp, nil
+}
+
+// graphExpansion performs a BFS from req.Seeds over the links table,
+// following both outgoing wikilinks (links.from_note_id → links.to_note_id)
+// and backlinks (links.to_note_id → links.from_note_id). Depth defaults
+// to 1 (direct neighbors only). Seeds themselves are not returned; only
+// reachable notes.
+//
+// Note filtering (Tags, NoteTypes, Since, Until) is applied to the
+// expanded set before truncating to Limit.
+func (r *SQLiteRouter) graphExpansion(ctx context.Context, req RetrieveRequest, limit int) (RetrieveResponse, error) {
+	if len(req.Seeds) == 0 {
+		return RetrieveResponse{Mode: ModeGraphExpansion}, ErrEmptyRequest
+	}
+	depth := req.Depth
+	if depth <= 0 {
+		depth = 1
+	}
+
+	visited := map[string]struct{}{}
+	for _, s := range req.Seeds {
+		visited[s] = struct{}{}
+	}
+	frontier := append([]string(nil), req.Seeds...)
+	var ordered []string // newly-discovered notes in BFS order
+
+	for d := 0; d < depth && len(frontier) > 0; d++ {
+		next, err := r.neighborsBidirectional(ctx, frontier)
+		if err != nil {
+			return RetrieveResponse{Mode: ModeGraphExpansion}, err
+		}
+		var newFrontier []string
+		for _, n := range next {
+			if _, seen := visited[n]; seen {
+				continue
+			}
+			visited[n] = struct{}{}
+			ordered = append(ordered, n)
+			newFrontier = append(newFrontier, n)
+		}
+		frontier = newFrontier
+	}
+
+	if len(ordered) == 0 {
+		return RetrieveResponse{Mode: ModeGraphExpansion}, nil
+	}
+
+	filtered, err := r.applyNoteFilters(ctx, ordered, req)
+	if err != nil {
+		return RetrieveResponse{Mode: ModeGraphExpansion}, err
+	}
+	if len(filtered) > limit {
+		filtered = filtered[:limit]
+	}
+
+	resp := RetrieveResponse{Mode: ModeGraphExpansion, Hits: make([]Hit, 0, len(filtered))}
+	for _, id := range filtered {
+		resp.Hits = append(resp.Hits, Hit{NoteID: id})
+	}
+	return resp, nil
+}
+
+// neighborsBidirectional returns the set of note IDs reachable from any
+// of the given seed IDs in one hop, via outgoing wikilinks OR backlinks.
+// Order within the returned slice is by note ID for determinism.
+func (r *SQLiteRouter) neighborsBidirectional(ctx context.Context, seeds []string) ([]string, error) {
+	if len(seeds) == 0 {
+		return nil, nil
+	}
+	ph := placeholders(len(seeds))
+	q := `
+		SELECT DISTINCT to_note_id
+		FROM links
+		WHERE to_note_id IS NOT NULL AND from_note_id IN (` + ph + `)
+		UNION
+		SELECT DISTINCT from_note_id
+		FROM links
+		WHERE to_note_id IN (` + ph + `)
+		ORDER BY 1`
+	args := make([]any, 0, len(seeds)*2)
+	for _, s := range seeds {
+		args = append(args, s)
+	}
+	for _, s := range seeds {
+		args = append(args, s)
+	}
+	rows, err := r.DB.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("%w: neighbors: %v", ErrRetrieve, err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("%w: neighbors scan: %v", ErrRetrieve, err)
+		}
+		out = append(out, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: neighbors rows: %v", ErrRetrieve, err)
+	}
+	return out, nil
+}
+
+// applyNoteFilters returns the subset of ids whose notes satisfy the
+// request's Tags / NoteTypes / Since / Until filters. Input order is
+// preserved (BFS order from the caller).
+func (r *SQLiteRouter) applyNoteFilters(ctx context.Context, ids []string, req RetrieveRequest) ([]string, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	if len(req.Tags) == 0 && len(req.NoteTypes) == 0 && req.Since == nil && req.Until == nil {
+		return ids, nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString(`SELECT n.id FROM notes n WHERE n.id IN (`)
+	sb.WriteString(placeholders(len(ids)))
+	sb.WriteString(`)`)
+	args := make([]any, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	if len(req.Tags) > 0 {
+		sb.WriteString(` AND EXISTS (SELECT 1 FROM tags t WHERE t.note_id = n.id AND t.tag IN (`)
+		sb.WriteString(placeholders(len(req.Tags)))
+		sb.WriteString(`))`)
+		for _, t := range req.Tags {
+			args = append(args, t)
+		}
+	}
+	if len(req.NoteTypes) > 0 {
+		sb.WriteString(` AND n.type IN (`)
+		sb.WriteString(placeholders(len(req.NoteTypes)))
+		sb.WriteString(`)`)
+		for _, t := range req.NoteTypes {
+			args = append(args, t)
+		}
+	}
+	if req.Since != nil {
+		sb.WriteString(` AND n.mtime IS NOT NULL AND n.mtime >= ?`)
+		args = append(args, req.Since.Unix())
+	}
+	if req.Until != nil {
+		sb.WriteString(` AND n.mtime IS NOT NULL AND n.mtime <= ?`)
+		args = append(args, req.Until.Unix())
+	}
+
+	rows, err := r.DB.QueryContext(ctx, sb.String(), args...)
+	if err != nil {
+		return nil, fmt.Errorf("%w: filter: %v", ErrRetrieve, err)
+	}
+	defer rows.Close()
+	keep := map[string]struct{}{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("%w: filter scan: %v", ErrRetrieve, err)
+		}
+		keep[id] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: filter rows: %v", ErrRetrieve, err)
+	}
+
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := keep[id]; ok {
+			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
+// placeholders returns "?, ?, ..." with n placeholders.
+func placeholders(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for i := 0; i < n; i++ {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString("?")
+	}
+	return sb.String()
 }

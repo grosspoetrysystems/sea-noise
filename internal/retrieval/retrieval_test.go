@@ -6,8 +6,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 
@@ -189,8 +191,8 @@ func TestUnsupportedMode_SentinelError(t *testing.T) {
 	db := openDB(t)
 	r := retrieval.NewSQLiteRouter(db)
 	_, err := r.Retrieve(context.Background(), retrieval.RetrieveRequest{
-		Mode:  retrieval.ModeGraphExpansion,
-		Seeds: []string{"x.md"},
+		Mode:       retrieval.ModeDeterministicContextBuild,
+		WorkflowID: "daily-catchup",
 	})
 	if !errors.Is(err, retrieval.ErrUnsupportedMode) {
 		t.Errorf("err = %v, want ErrUnsupportedMode", err)
@@ -206,26 +208,191 @@ func TestEmptyRequest_SentinelError(t *testing.T) {
 	}
 }
 
-func TestIndexVault_RealFixtureVault(t *testing.T) {
-	// Locate testdata/fixture-vault from the package directory.
-	wd, err := os.Getwd()
+func TestGraphExpansion_Depth1AndDepth2(t *testing.T) {
+	// alpha → beta → gamma. delta links to alpha (backlink test).
+	root := writeVault(t, map[string]string{
+		"notes/alpha.md": "---\ntitle: Alpha\n---\nlinks to [[beta]]\n",
+		"notes/beta.md":  "---\ntitle: Beta\n---\nlinks to [[gamma]]\n",
+		"notes/gamma.md": "---\ntitle: Gamma\n---\nleaf node\n",
+		"notes/delta.md": "---\ntitle: Delta\n---\nbacklink to [[alpha]]\n",
+	})
+	db := openDB(t)
+	if _, err := retrieval.IndexVault(context.Background(), db, root, nil); err != nil {
+		t.Fatalf("IndexVault: %v", err)
+	}
+	r := retrieval.NewSQLiteRouter(db)
+
+	// Depth 1 from alpha: should reach beta (outgoing) and delta (backlink).
+	resp, err := r.Retrieve(context.Background(), retrieval.RetrieveRequest{
+		Mode:  retrieval.ModeGraphExpansion,
+		Seeds: []string{"notes/alpha.md"},
+	})
 	if err != nil {
-		t.Fatalf("getwd: %v", err)
+		t.Fatalf("depth1: %v", err)
 	}
-	// Walk up to the repo root by looking for testdata/fixture-vault.
-	root := wd
-	var vaultRoot string
-	for i := 0; i < 6; i++ {
-		candidate := filepath.Join(root, "testdata", "fixture-vault")
-		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			vaultRoot = candidate
-			break
+	got := hitIDs(resp.Hits)
+	sort.Strings(got)
+	want := []string{"notes/beta.md", "notes/delta.md"}
+	if !equalStrings(got, want) {
+		t.Errorf("depth1 hits = %v, want %v", got, want)
+	}
+
+	// Depth 2 from alpha: should additionally reach gamma (via beta).
+	resp, err = r.Retrieve(context.Background(), retrieval.RetrieveRequest{
+		Mode:  retrieval.ModeGraphExpansion,
+		Seeds: []string{"notes/alpha.md"},
+		Depth: 2,
+	})
+	if err != nil {
+		t.Fatalf("depth2: %v", err)
+	}
+	got = hitIDs(resp.Hits)
+	sort.Strings(got)
+	want = []string{"notes/beta.md", "notes/delta.md", "notes/gamma.md"}
+	if !equalStrings(got, want) {
+		t.Errorf("depth2 hits = %v, want %v", got, want)
+	}
+}
+
+func TestGraphExpansion_NoSeeds_SentinelError(t *testing.T) {
+	db := openDB(t)
+	r := retrieval.NewSQLiteRouter(db)
+	_, err := r.Retrieve(context.Background(), retrieval.RetrieveRequest{Mode: retrieval.ModeGraphExpansion})
+	if !errors.Is(err, retrieval.ErrEmptyRequest) {
+		t.Errorf("err = %v, want ErrEmptyRequest", err)
+	}
+}
+
+func TestFTSSearch_TagFilter(t *testing.T) {
+	root := writeVault(t, map[string]string{
+		"a.md": "---\ntitle: A\ntags: [keep]\n---\nquick brown fox\n",
+		"b.md": "---\ntitle: B\ntags: [drop]\n---\nquick brown fox\n",
+	})
+	db := openDB(t)
+	if _, err := retrieval.IndexVault(context.Background(), db, root, nil); err != nil {
+		t.Fatalf("IndexVault: %v", err)
+	}
+	r := retrieval.NewSQLiteRouter(db)
+	resp, err := r.Retrieve(context.Background(), retrieval.RetrieveRequest{
+		Query: "quick brown",
+		Tags:  []string{"keep"},
+	})
+	if err != nil {
+		t.Fatalf("Retrieve: %v", err)
+	}
+	got := hitIDs(resp.Hits)
+	want := []string{"a.md"}
+	if !equalStrings(got, want) {
+		t.Errorf("tag-filtered hits = %v, want %v", got, want)
+	}
+}
+
+func TestFTSSearch_NoteTypeFilter(t *testing.T) {
+	root := writeVault(t, map[string]string{
+		"a.md": "---\ntitle: A\ntype: reference\n---\nquick brown fox\n",
+		"b.md": "---\ntitle: B\ntype: idea\n---\nquick brown fox\n",
+	})
+	db := openDB(t)
+	if _, err := retrieval.IndexVault(context.Background(), db, root, nil); err != nil {
+		t.Fatalf("IndexVault: %v", err)
+	}
+	r := retrieval.NewSQLiteRouter(db)
+	resp, err := r.Retrieve(context.Background(), retrieval.RetrieveRequest{
+		Query:     "quick brown",
+		NoteTypes: []string{"reference"},
+	})
+	if err != nil {
+		t.Fatalf("Retrieve: %v", err)
+	}
+	got := hitIDs(resp.Hits)
+	want := []string{"a.md"}
+	if !equalStrings(got, want) {
+		t.Errorf("type-filtered hits = %v, want %v", got, want)
+	}
+}
+
+func TestFTSSearch_MtimeWindow(t *testing.T) {
+	root := writeVault(t, map[string]string{
+		"old.md":   "---\ntitle: Old\n---\nquick brown fox\n",
+		"new.md":   "---\ntitle: New\n---\nquick brown fox\n",
+		"recent.md": "---\ntitle: Recent\n---\nquick brown fox\n",
+	})
+	// Pin deterministic mtimes. Using fixed dates from time.Date for hermeticity.
+	oldT := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	newT := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+	recentT := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for rel, ts := range map[string]time.Time{
+		"old.md":    oldT,
+		"new.md":    newT,
+		"recent.md": recentT,
+	} {
+		if err := os.Chtimes(filepath.Join(root, rel), ts, ts); err != nil {
+			t.Fatalf("chtimes %s: %v", rel, err)
 		}
-		root = filepath.Dir(root)
 	}
-	if vaultRoot == "" {
-		t.Skipf("testdata/fixture-vault not found from %s; skipping real-vault parity sanity", wd)
+
+	db := openDB(t)
+	if _, err := retrieval.IndexVault(context.Background(), db, root, nil); err != nil {
+		t.Fatalf("IndexVault: %v", err)
 	}
+	r := retrieval.NewSQLiteRouter(db)
+
+	// Since newT (inclusive): new + recent.
+	since := newT
+	resp, err := r.Retrieve(context.Background(), retrieval.RetrieveRequest{
+		Query: "quick brown",
+		Since: &since,
+	})
+	if err != nil {
+		t.Fatalf("Retrieve since: %v", err)
+	}
+	got := hitIDs(resp.Hits)
+	sort.Strings(got)
+	want := []string{"new.md", "recent.md"}
+	if !equalStrings(got, want) {
+		t.Errorf("since hits = %v, want %v", got, want)
+	}
+
+	// Until newT (inclusive): old + new.
+	until := newT
+	resp, err = r.Retrieve(context.Background(), retrieval.RetrieveRequest{
+		Query: "quick brown",
+		Until: &until,
+	})
+	if err != nil {
+		t.Fatalf("Retrieve until: %v", err)
+	}
+	got = hitIDs(resp.Hits)
+	sort.Strings(got)
+	want = []string{"new.md", "old.md"}
+	if !equalStrings(got, want) {
+		t.Errorf("until hits = %v, want %v", got, want)
+	}
+}
+
+// hitIDs is a test-local helper to project a result list to note IDs.
+func hitIDs(hits []retrieval.Hit) []string {
+	out := make([]string, 0, len(hits))
+	for _, h := range hits {
+		out = append(out, h.NoteID)
+	}
+	return out
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func TestIndexVault_RealFixtureVault(t *testing.T) {
+	vaultRoot, _ := findFixtureVault(t)
 
 	db := openDB(t)
 	stats, err := retrieval.IndexVault(context.Background(), db, vaultRoot, nil)
