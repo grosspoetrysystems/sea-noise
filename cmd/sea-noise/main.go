@@ -47,6 +47,16 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sea-noise profile-entities: %v\n", err)
 			os.Exit(1)
 		}
+	case "index":
+		if err := runIndex(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise index: %v\n", err)
+			os.Exit(1)
+		}
+	case "search":
+		if err := runSearch(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise search: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
 		printUsage()
@@ -68,6 +78,8 @@ Subcommands:
   audit-links              scan vault for broken [[wikilinks]], write report to _meta/broken-links.md
   summarize-transcripts    enrich notes containing ## Transcript with a ## Research Context section via the configured inference CLI
   profile-entities         generate an entity profile from vault mentions; manual mode only (auto-mode is a follow-up port)
+  index                    rebuild the SQLite retrieval index for the configured vault (--db PATH)
+  search                   run FTS5 keyword search against the index (--db PATH QUERY...)
 
 Config:
   Vault path is resolved from MIND_PALACE_VAULT env or vault.path in
