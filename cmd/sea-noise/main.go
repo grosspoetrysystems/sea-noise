@@ -57,6 +57,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sea-noise search: %v\n", err)
 			os.Exit(1)
 		}
+	case "generate-signal":
+		if err := runGenerateSignal(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise generate-signal: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
 		printUsage()
@@ -80,6 +85,7 @@ Subcommands:
   profile-entities         generate an entity profile from vault mentions; manual mode only (auto-mode is a follow-up port)
   index                    rebuild the SQLite retrieval index for the configured vault (--db PATH)
   search                   run FTS5 keyword search against the index (--db PATH QUERY...)
+  generate-signal          assemble the rolling signal queue from unconsumed notes, write to signal/queue.md
 
 Config:
   Vault path is resolved from MIND_PALACE_VAULT env or vault.path in
