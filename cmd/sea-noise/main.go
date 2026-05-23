@@ -62,6 +62,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sea-noise generate-signal: %v\n", err)
 			os.Exit(1)
 		}
+	case "enrich-topics":
+		if err := runEnrichTopics(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise enrich-topics: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
 		printUsage()
@@ -86,6 +91,7 @@ Subcommands:
   index                    rebuild the SQLite retrieval index for the configured vault (--db PATH)
   search                   run FTS5 keyword search against the index (--db PATH QUERY...)
   generate-signal          assemble the rolling signal queue from unconsumed notes, write to signal/queue.md
+  enrich-topics            write a research brief for a topic cluster; uses Cloudflare /crawl when CF_ACCOUNT_ID + CF_API_TOKEN are set, vault-only otherwise
 
 Config:
   Vault path is resolved from MIND_PALACE_VAULT env or vault.path in
