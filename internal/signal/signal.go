@@ -476,7 +476,10 @@ func renderQueue(items []item, now time.Time) string {
 		fmt.Fprintln(&b, "")
 	}
 
-	return b.String()
+	// Python's "\n".join(lines) emits exactly one trailing newline when
+	// the final element is "" (every section appends "" as separator).
+	// Go's per-line Fprintln pile-up gives two; normalize to match.
+	return strings.TrimRight(b.String(), "\n") + "\n"
 }
 
 func truncate(in []item, n int) []item {

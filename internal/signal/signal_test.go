@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -253,6 +254,57 @@ func TestBuild_MissingScanDirs(t *testing.T) {
 	if !strings.Contains(body, "Queue empty") {
 		t.Errorf("expected empty-queue marker:\n%s", body)
 	}
+}
+
+func TestBuild_ParityAgainstFixture(t *testing.T) {
+	root := repoRoot(t)
+	fixture := filepath.Join(root, "testdata", "fixture-vault")
+	goldenPath := filepath.Join(root, "testdata", "expected", "signal", "queue.md")
+
+	today, err := time.Parse("2006-01-02", "2026-05-21")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, _, err := signal.Build(fixture, today)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+
+	want, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("read golden: %v", err)
+	}
+
+	if got != string(want) {
+		min := len(got)
+		if len(want) < min {
+			min = len(want)
+		}
+		for i := 0; i < min; i++ {
+			if got[i] != want[i] {
+				start := i - 40
+				if start < 0 {
+					start = 0
+				}
+				end := i + 40
+				if end > min {
+					end = min
+				}
+				t.Fatalf("first mismatch at byte %d:\n  got:  %q\n  want: %q", i, got[start:end], string(want[start:end]))
+			}
+		}
+		t.Fatalf("length mismatch: got %d, want %d", len(got), len(want))
+	}
+}
+
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 }
 
 func TestErrSignal_Is(t *testing.T) {
