@@ -2,7 +2,7 @@
 //
 // For this scaffold the only configuration surface is the vault path,
 // resolved from MIND_PALACE_VAULT env or a vault.path entry in
-// mind-palace.toml. Both sources resolve to an existing directory or
+// sea-noise.toml. Both sources resolve to an existing directory or
 // LoadVaultPath returns a clear error.
 package config
 
@@ -18,7 +18,7 @@ import (
 
 // ConfigFileName is the name of the optional TOML config file at the
 // repo root or the working directory.
-const ConfigFileName = "mind-palace.toml"
+const ConfigFileName = "sea-noise.toml"
 
 // EnvVar is the environment variable that overrides the config file's
 // vault.path.
@@ -28,7 +28,7 @@ const EnvVar = "MIND_PALACE_VAULT"
 // errors.Is. Message wording can evolve without breaking the contract.
 var (
 	// ErrNotConfigured is returned when neither MIND_PALACE_VAULT nor
-	// vault.path in mind-palace.toml is set.
+	// vault.path in sea-noise.toml is set.
 	ErrNotConfigured = errors.New("vault path not configured")
 
 	// ErrPathMissing is returned when a configured vault path does not
@@ -41,7 +41,7 @@ var (
 )
 
 // LoadVaultPath resolves the vault path. MIND_PALACE_VAULT wins over
-// mind-palace.toml if both are set. The resolved path must point to an
+// sea-noise.toml if both are set. The resolved path must point to an
 // existing directory.
 func LoadVaultPath() (string, error) {
 	if p := strings.TrimSpace(os.Getenv(EnvVar)); p != "" {
