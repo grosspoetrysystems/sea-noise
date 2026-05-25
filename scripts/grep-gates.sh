@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Enforce the CI grep gates from ARCHITECTURE.md §6 and §7.
+# Enforce the CI grep gates from ARCHITECTURE.md §6 and §7, plus the
+# scaffold-posture gate from T02.
 #
 # Each gate looks for forbidden patterns in Go source. Any non-zero count
 # fails the gate. The script exits non-zero if any gate fails.
@@ -52,9 +53,25 @@ if [ "${count}" -ne 0 ]; then
   fail=1
 fi
 
+# Gate 5: no Kong or koanf imports (scaffold posture is hand-rolled flag
+# + custom TOML loader; see KNOWN-DELTA.md "Scaffold simplifications").
+# Checks both Go source and go.mod.
+count=$(count_hits '"[^"]*/(kong|koanf)(/|")' '(_test\.go|/tests?/)' || true)
+if [ "${count}" -ne 0 ]; then
+  echo "GATE FAIL: Kong or koanf imports in Go source (${count} hits):"
+  grep -rE '"[^"]*/(kong|koanf)(/|")' --include='*.go' . \
+    | grep -v -E '(_test\.go|/tests?/)' || true
+  fail=1
+fi
+if grep -qE '(kong|koanf)' go.mod 2>/dev/null; then
+  echo "GATE FAIL: Kong or koanf entry found in go.mod:"
+  grep -nE '(kong|koanf)' go.mod
+  fail=1
+fi
+
 if [ "${fail}" -ne 0 ]; then
   echo "" >&2
-  echo "One or more grep gates failed. See ARCHITECTURE.md §6 and §7." >&2
+  echo "One or more grep gates failed. See ARCHITECTURE.md §6 and §7 and KNOWN-DELTA.md." >&2
   exit 1
 fi
 
