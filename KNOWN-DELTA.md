@@ -9,7 +9,7 @@ The earlier plan called for Kong CLI framework, koanf TOML+env config, a Makefil
 - Hand-rolled `flag` + switch dispatcher in `cmd/sea-noise/main.go`
 - Custom TOML loader in `internal/config/`
 - Shell scripts (`scripts/build.sh`, `scripts/test.sh`, `scripts/grep-gates.sh`) in place of Makefile and GitHub Actions
-- Binary name `sea-noise` (earlier plan said `mind-palace`)
+- Binary name `sea-noise` (an earlier plan used a different name, since dropped)
 
 Rationale: minimize first, layer up after proof. The simpler scaffold passes its own tests, builds clean, and keeps the dependency surface small. Restoration of any of these substitutions becomes a future track only if the simpler shape proves inadequate.
 
@@ -53,4 +53,8 @@ See `DAEMON.md` for the daemon lifecycle and IPC contract.
 ## Cosmetic naming
 
 - The inference router type is named `LocalRouter` (`internal/ai/inferencerouter/`). An earlier draft used `StubInferenceRouter`. Shape is identical.
-- Config file is `sea-noise.toml`. Earlier code referenced `mind-palace.toml`; the rename follows the binary rename. The `MIND_PALACE_VAULT` environment variable still works as a fallback for vault path resolution.
+- Config file is `sea-noise.toml`. Earlier code referenced an older filename; the rename follows the binary rename. The `MIND_PALACE_VAULT` environment variable still works as a fallback for vault path resolution and intentionally retains its historical name for compatibility with the Python prototype's runtime convention.
+
+## Scoping note for grep-based scrubs
+
+The Python prototype's source name appears in `references/` (parity authority), `testdata/fixture-vault/` (golden fixture), dated `docs/2026-05-16-*` (historical artifacts), and real disk-path documentation in `README.md` and `docs/MIGRATION.md` (the user's Obsidian vault folder is named after the prototype). These instances are intentionally preserved — modifying parity-authority content breaks the parity-first discipline, and disk-path references describe real filesystem state. Any future scrub gate must carve these out explicitly.

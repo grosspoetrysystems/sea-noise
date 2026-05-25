@@ -1,6 +1,6 @@
 # Sea Noise
 
-Parity-first Go port of the Python "mind-palace" prototype. A local retrieval and context-assembly runtime over a markdown vault. Single static binary, CGO disabled, no Python in shipped output.
+Parity-first Go port of the Python prototype in `references/scripts/`. A local retrieval and context-assembly runtime over a markdown vault. Single static binary, CGO disabled, no Python in shipped output.
 
 This file is the team-shared agent entry point. `CLAUDE.md` imports it via `@AGENTS.md` so Claude Code picks up the same content. Personal/IC-local agent context lives under `.agents/local/` (gitignored) and **supplements** — never replaces — what's here.
 
@@ -51,7 +51,11 @@ Empty output = no rules matched. JSON with `additionalContext` = those rules wil
 node --test .agents/shared/hooks/*.test.mjs .claude/shared/hooks/*.test.mjs   # rule-injector tests
 ```
 
-Vault path is resolved from `MIND_PALACE_VAULT` env var or `vault.path` in `mind-palace.toml`. Env var wins.
+Vault path is resolved from `MIND_PALACE_VAULT` env var or `vault.path` in `sea-noise.toml`. Env var wins. The `MIND_PALACE_VAULT` env var name is preserved for compatibility with the Python prototype's runtime convention.
+
+## CLI dispatch
+
+`cmd/sea-noise/main.go` uses a hand-rolled `flag` + switch dispatcher (no Kong, no cobra). Subcommands register as `case` arms calling local `runX(args []string) error` functions. The custom TOML loader in `internal/config/` (no koanf) handles config parsing. This scaffold posture is "minimize first, layer up after proof" — restoration to third-party libraries is a future track only if proof demands it. See `KNOWN-DELTA.md` for the rationale.
 
 ## Commit discipline
 

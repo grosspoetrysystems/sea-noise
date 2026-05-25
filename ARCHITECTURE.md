@@ -1,6 +1,6 @@
 # Sea Noise — Architecture
 
-Parity-first Go port of the Python "mind-palace" prototype: a local retrieval and context-assembly runtime over an Obsidian markdown vault. This document specifies architectural commitments and interface contracts. It does not specify implementation details — those are decided in subsequent waves.
+Parity-first Go port of the Python prototype in `references/scripts/`: a local retrieval and context-assembly runtime over an Obsidian markdown vault. This document specifies architectural commitments and interface contracts. It does not specify implementation details — those are decided in subsequent waves.
 
 ## 1. Scope
 
@@ -183,7 +183,7 @@ The shipped binary obeys these constraints. Each is enforced by a CI gate.
 | No `sqlite-vec` / `modernc.org/sqlite/vec` | CI grep gate; explicit exclusion list in CI config |
 | No string literals for model/provider IDs outside config | CI grep gate per §6 |
 
-The vault path is never hardcoded. It is resolved from `mind-palace.toml` (at repo root or the project's config directory) or the `MIND_PALACE_VAULT` environment variable, with explicit precedence documented at T02 (Phase 1).
+The vault path is never hardcoded. It is resolved from `sea-noise.toml` (at repo root or the project's config directory) or the `MIND_PALACE_VAULT` environment variable, with explicit precedence documented in `internal/config/`. Build tooling is shell scripts (`scripts/build.sh`, `scripts/test.sh`, `scripts/grep-gates.sh`) — no Makefile, no GitHub Actions workflows.
 
 ## 8. Fallback chain
 

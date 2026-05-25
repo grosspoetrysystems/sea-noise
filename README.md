@@ -50,8 +50,8 @@ Then point the binary at a vault:
 # Either set an env var:
 MIND_PALACE_VAULT=/path/to/vault ./sea-noise --help
 
-# Or copy mind-palace.toml.example to mind-palace.toml and edit it:
-cp mind-palace.toml.example mind-palace.toml
+# Or copy sea-noise.toml.example to sea-noise.toml and edit it:
+cp sea-noise.toml.example sea-noise.toml
 # uncomment and set vault.path = "/path/to/vault"
 ```
 

@@ -95,5 +95,5 @@ Subcommands:
 
 Config:
   Vault path is resolved from MIND_PALACE_VAULT env or vault.path in
-  mind-palace.toml. See mind-palace.toml.example for the format.`)
+  sea-noise.toml. See sea-noise.toml.example for the format.`)
 }
