@@ -77,6 +77,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sea-noise sync: %v\n", err)
 			os.Exit(1)
 		}
+	case "fetch":
+		if err := runFetch(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise fetch: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
 		printUsage()
@@ -105,6 +110,8 @@ Subcommands:
   youtube                  hydrate notes whose source: frontmatter points at YouTube with a ## Transcript section
   sync todoist [push]      push notes/todos/*.md to Todoist as new tasks; records the returned id in note frontmatter
   sync todoist --completions  pull recently-completed Todoist tasks and mark the matching vault notes done
+  fetch                    hydrate inbox stubs by crawling their source URLs; dedups against existing vault notes
+  fetch --retry            retry failed crawls from _meta/crawl-failures.json whose backoff window has elapsed
 
 Config:
   Vault path is resolved from MIND_PALACE_VAULT env or vault.path in
