@@ -36,6 +36,7 @@ func runEnrichTopics(args []string) error {
 	auto := fs.Bool("auto", false, "auto mode: enrich every eligible topic from _meta/topic-frequencies.md instead of a single positional topic")
 	threshold := fs.Int("threshold", enrichtopics.DefaultAutoThreshold, "[--auto only] minimum topic mention count to qualify for enrichment")
 	maxPerRun := fs.Int("max-per-run", enrichtopics.DefaultMaxAutoPerRun, "[--auto only] cap on number of topics enriched per invocation")
+	notePath := fs.String("note", "", "enrich a single vault note (vault-relative path) instead of a topic cluster")
 	fs.Usage = func() {
 		fmt.Fprintln(fs.Output(), `Usage:
   sea-noise enrich-topics [flags] <topic>
@@ -67,12 +68,22 @@ Both must be set for crawling; otherwise enrichment is vault-only.`)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if !*auto && fs.NArg() < 1 {
-		fs.Usage()
-		return errors.New("topic argument required (or pass --auto)")
+	modes := 0
+	if *auto {
+		modes++
 	}
-	if *auto && fs.NArg() > 0 {
-		return errors.New("--auto takes no positional topic argument")
+	if *notePath != "" {
+		modes++
+	}
+	if fs.NArg() >= 1 {
+		modes++
+	}
+	if modes == 0 {
+		fs.Usage()
+		return errors.New("topic argument required (or pass --auto / --note PATH)")
+	}
+	if modes > 1 {
+		return errors.New("--auto, --note, and a positional topic are mutually exclusive")
 	}
 
 	vaultRoot, err := config.LoadVaultPath()
@@ -91,6 +102,11 @@ Both must be set for crawling; otherwise enrichment is vault-only.`)
 	if _, ok := skills["generate-research-brief"]; !ok {
 		return errors.New("generate-research-brief skill not found; check --skills-dir")
 	}
+	if *notePath != "" {
+		if _, ok := skills["enrich-single-note"]; !ok {
+			return errors.New("enrich-single-note skill not found (required for --note); check --skills-dir")
+		}
+	}
 	if *cliCommand == "" {
 		return errors.New("--cli-command required (e.g., claude, codex)")
 	}
@@ -105,6 +121,20 @@ Both must be set for crawling; otherwise enrichment is vault-only.`)
 	}
 	exec := skill.NewExecutor(skills, inferencerouter.NewLocalRouter(), tx)
 	crawler := enrichtopics.NewCrawlerFromEnv()
+
+	if *notePath != "" {
+		res, err := enrichtopics.EnrichNote(context.Background(), exec, crawler, enrichtopics.NoteInput{
+			VaultRoot: vaultRoot,
+			NotePath:  *notePath,
+		})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Enriched note: %s\n", res.NotePath)
+		fmt.Printf("  crawled: %d pages\n", res.Crawled)
+		fmt.Printf("  log:     %s\n", res.LogPath)
+		return nil
+	}
 
 	if *auto {
 		res, err := enrichtopics.EnrichTopicsAuto(context.Background(), exec, crawler, enrichtopics.AutoInput{
