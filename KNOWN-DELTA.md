@@ -28,6 +28,13 @@ The `Embedder` interface in `internal/ai/embedder/` stays seam-only. No concrete
 
 The earlier plan called for `fetch`, `fetch --retry`, `sync todoist push`, `sync todoist --completions`, and `youtube` subcommands. v10 restores all five. They register in the same `flag` + switch dispatcher as the already-shipped subcommands.
 
+Two prototype behaviors inside `fetch-stub-content.py` are intentionally out of v10 scope:
+
+- **Platform-API pre-fetch path.** The Python script imports a local-only `platform_apis` module (`fetch_via_platform_api`, `crawl_upgrade_queue`) that is not in `references/scripts/`. Without it as authority for parity comparison, the Go `internal/fetchstub/` port calls Cloudflare via `internal/crawl/` directly. Result: same end-state for plain web pages; Substack-Notes-style multi-platform unwrapping is deferred.
+- **Crawl-upgrade post-pass.** Runs only when `platform_apis` has populated `crawl_upgrade_queue`. With the platform path deferred, the post-pass has no input and is also deferred.
+
+Both deferrals are recoverable: if the platform-API module surfaces in a future `references/` refresh, the post-pass slots back in as a second call to `internal/crawl/` over the queued URLs. The manifest-backed retry surface is fully ported and provides the safety net for the missing path.
+
 ## Retrieval router scope (T08)
 
 The retrieval router under `internal/retrieval/` (SQLite FTS5 + BM25 + graph expansion) was originally planned to back AI-workflow context assembly. Investigation showed every prototype-derived workflow scans the vault directly via `vault.Walk` plus substring or regex matching. Wiring the router into them would change candidate sets and break parity.
