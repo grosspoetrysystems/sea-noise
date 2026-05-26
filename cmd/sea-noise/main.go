@@ -87,6 +87,16 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sea-noise process-inbox: %v\n", err)
 			os.Exit(1)
 		}
+	case "serve":
+		if err := runServe(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise serve: %v\n", err)
+			os.Exit(1)
+		}
+	case "run":
+		if err := runRun(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise run: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
 		printUsage()
@@ -118,6 +128,8 @@ Subcommands:
   fetch                    hydrate inbox stubs by crawling their source URLs; dedups against existing vault notes
   fetch --retry            retry failed crawls from _meta/crawl-failures.json whose backoff window has elapsed
   process-inbox            invoke the inbox-process skill: triage every inbox/ note, update topic-frequencies + atlas/, promote out of inbox
+  serve                    start the resident daemon: in-process scheduler firing daily / weekly pipelines on Go timers
+  run inbox|daily|weekly   one-shot debug entry: fire one pipeline once and exit; respects the marker file unless --force is set
 
 Config:
   Vault path is resolved from MIND_PALACE_VAULT env or vault.path in

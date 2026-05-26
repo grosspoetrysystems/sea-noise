@@ -44,6 +44,24 @@ The Claude-integration workflows split into two execution shapes:
 
 `_meta/topic-frequencies.md` is the contract between `process-inbox` (writer) and `internal/signal/` (reader): a single 4-column markdown table `| tag | count | last_seen | trend |`. The inbox-process skill is pinned to this column layout. The prototype's older 5-column shape `| topic | first_seen | last_seen | count | trend |` is read tolerantly by `internal/enrichtopics/auto.go` for backwards compatibility but is not what fresh `process-inbox` runs emit.
 
+## Daemon shell (T11) + deferred catchup steps
+
+The resident-process daemon shell (`internal/daemon/`) ships with the daily + weekly + inbox pipeline shape, marker-file gating, processing-log writing, `--dry-run`, and step-failure isolation. The step lists pin the prototype's catchup-script step names byte-for-byte. Each step is either bound to an in-process Go workflow or marked **deferred** with `Fn: nil`, in which case the daemon logs `DEFERRED (no Go port yet)` and continues.
+
+Deferred steps as of T11 merge:
+
+| Step | Prototype script | Status |
+|------|------------------|--------|
+| `daily-synthesis` | `claude -p "daily synthesis" --dangerously-skip-permissions` | LLM-orchestrated; no skill file yet. Future port adds a `daily-synthesis` skill mirroring the prompt. |
+| `weekly-synthesis` | `claude -p "weekly synthesis" --dangerously-skip-permissions` | Same shape as daily-synthesis; same future port. |
+| `sync-consumed` | `_scripts/sync-consumed.py` | Not in `references/scripts/`. The prototype keeps it locally only; the parity-authority gap means no Go port until the script surfaces. |
+| `plunge` | `_scripts/generate-plunge.py` | Same — not in `references/scripts/`. |
+| `home` | `_scripts/generate-home.py` | Same — not in `references/scripts/`. |
+
+The daemon's `Server.RunPipeline` is the plug-in seam for IPC (T11-IPC) and the fsnotify watcher (T11-watch). Both subsystems ship as their own tracks and reach into the daemon via this single entry point — no further refactor of `internal/daemon/` is required to add them.
+
+Time source is `time.Now().UTC()` for scheduling boundaries; the prototype uses local time. UTC was chosen for determinism (DST transitions, multi-timezone vault syncs). If proof demands local-time scheduling, swap the clock implementation; the `Clock` interface in `internal/daemon/` makes that a one-line change.
+
 ## Retrieval router scope (T08)
 
 The retrieval router under `internal/retrieval/` (SQLite FTS5 + BM25 + graph expansion) was originally planned to back AI-workflow context assembly. Investigation showed every prototype-derived workflow scans the vault directly via `vault.Walk` plus substring or regex matching. Wiring the router into them would change candidate sets and break parity.
