@@ -82,6 +82,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sea-noise fetch: %v\n", err)
 			os.Exit(1)
 		}
+	case "process-inbox":
+		if err := runProcessInbox(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise process-inbox: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
 		printUsage()
@@ -112,6 +117,7 @@ Subcommands:
   sync todoist --completions  pull recently-completed Todoist tasks and mark the matching vault notes done
   fetch                    hydrate inbox stubs by crawling their source URLs; dedups against existing vault notes
   fetch --retry            retry failed crawls from _meta/crawl-failures.json whose backoff window has elapsed
+  process-inbox            invoke the inbox-process skill: triage every inbox/ note, update topic-frequencies + atlas/, promote out of inbox
 
 Config:
   Vault path is resolved from MIND_PALACE_VAULT env or vault.path in
