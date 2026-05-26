@@ -35,6 +35,15 @@ Two prototype behaviors inside `fetch-stub-content.py` are intentionally out of 
 
 Both deferrals are recoverable: if the platform-API module surfaces in a future `references/` refresh, the post-pass slots back in as a second call to `internal/crawl/` over the queued URLs. The manifest-backed retry surface is fully ported and provides the safety net for the missing path.
 
+## AI workflow shapes (T07)
+
+The Claude-integration workflows split into two execution shapes:
+
+- **Go-orchestrated workflows** (vault-wide `enrich-topics --auto`, `enrich-topics --note`, vault-wide `profile-entities --auto`). The Go process walks the vault, picks candidates, calls the inference skill per-candidate, and writes the results. Tests use `t.TempDir` + a mocked `MockTransport` to assert against the per-candidate prompts and post-write vault state. This matches the existing single-note shape (`enrich-topics <topic>`, `profile-entities <entity>`, `summarize-transcripts`).
+- **LLM-orchestrated workflows** (`process-inbox`). The Go process loads the skill, fires it through the inference CLI once, and reports back whatever summary the LLM emits. The LLM uses its own file tools (via `claude -p --dangerously-skip-permissions` or equivalent) to read inbox/, write `_meta/topic-frequencies.md`, `_meta/rejected-connections.md`, and `atlas/*` MOC updates, and to promote notes out of inbox/. Tests can only assert that the skill is wired and the prompt receives the vault root — runtime behavior depends on the LLM and is not parity-asserted from Go.
+
+`_meta/topic-frequencies.md` is the contract between `process-inbox` (writer) and `internal/signal/` (reader): a single 4-column markdown table `| tag | count | last_seen | trend |`. The inbox-process skill is pinned to this column layout. The prototype's older 5-column shape `| topic | first_seen | last_seen | count | trend |` is read tolerantly by `internal/enrichtopics/auto.go` for backwards compatibility but is not what fresh `process-inbox` runs emit.
+
 ## Retrieval router scope (T08)
 
 The retrieval router under `internal/retrieval/` (SQLite FTS5 + BM25 + graph expansion) was originally planned to back AI-workflow context assembly. Investigation showed every prototype-derived workflow scans the vault directly via `vault.Walk` plus substring or regex matching. Wiring the router into them would change candidate sets and break parity.
