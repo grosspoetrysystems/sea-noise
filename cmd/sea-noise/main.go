@@ -67,6 +67,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sea-noise enrich-topics: %v\n", err)
 			os.Exit(1)
 		}
+	case "youtube":
+		if err := runYoutube(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise youtube: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
 		printUsage()
@@ -92,6 +97,7 @@ Subcommands:
   search                   run FTS5 keyword search against the index (--db PATH QUERY...)
   generate-signal          assemble the rolling signal queue from unconsumed notes, write to signal/queue.md
   enrich-topics            write a research brief for a topic cluster; uses Cloudflare /crawl when CF_ACCOUNT_ID + CF_API_TOKEN are set, vault-only otherwise
+  youtube                  hydrate notes whose source: frontmatter points at YouTube with a ## Transcript section
 
 Config:
   Vault path is resolved from MIND_PALACE_VAULT env or vault.path in
