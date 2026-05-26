@@ -34,6 +34,11 @@ var (
 type Input struct {
 	VaultRoot string
 	Entity    string
+	// EntityType is the optional classification (person, company,
+	// project, concept, other) that GenerateAuto's filter step
+	// produces. When empty, "concept" is used so the manual-mode flow
+	// still writes a well-formed entity-type frontmatter key.
+	EntityType string
 	// Today is injected for deterministic file naming in tests. Zero
 	// value -> time.Now().
 	Today time.Time
@@ -89,7 +94,11 @@ func Generate(ctx context.Context, exec *skill.Executor, in Input) (Result, erro
 		return Result{}, fmt.Errorf("generate-entity-profile: %w", err)
 	}
 
-	profileRel, err := writeProfile(in.VaultRoot, in.Entity, mentions, body, in.Today)
+	entityType := in.EntityType
+	if entityType == "" {
+		entityType = "concept"
+	}
+	profileRel, err := writeProfile(in.VaultRoot, in.Entity, entityType, mentions, body, in.Today)
 	if err != nil {
 		return Result{}, err
 	}
@@ -205,7 +214,7 @@ func slugify(s string) string {
 // writeProfile writes the new entity profile to
 // notes/entities/<date>-profile-<slug>.md. Returns the vault-relative
 // path of the written file.
-func writeProfile(vaultRoot, entity string, mentions []Mention, body string, today time.Time) (string, error) {
+func writeProfile(vaultRoot, entity, entityType string, mentions []Mention, body string, today time.Time) (string, error) {
 	date := today.Format("2006-01-02")
 	slug := slugify(entity)
 	rel := filepath.Join("notes", "entities", fmt.Sprintf("%s-profile-%s.md", date, slug))
@@ -226,9 +235,11 @@ func writeProfile(vaultRoot, entity string, mentions []Mention, body string, tod
 title: "%s"
 tags:
   - entity
+  - entity/%s
   - entity-profile
 date: %s
 source: profile-entities
+entity-type: %s
 mention-count: %d
 ---
 
@@ -238,7 +249,7 @@ mention-count: %d
 
 ## Vault Backlinks
 %s
-`, entity, date, len(mentions), entity, body, backlinks.String())
+`, entity, entityType, date, entityType, len(mentions), entity, body, backlinks.String())
 
 	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
 		return "", fmt.Errorf("write %s: %w", full, err)
