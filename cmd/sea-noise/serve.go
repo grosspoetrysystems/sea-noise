@@ -10,12 +10,15 @@ import (
 	"syscall"
 	"time"
 
+	"path/filepath"
+
 	"sea-noise/internal/ai/inferencerouter"
 	"sea-noise/internal/ai/skill"
 	"sea-noise/internal/ai/transport"
 	"sea-noise/internal/config"
 	"sea-noise/internal/crawl"
 	"sea-noise/internal/daemon"
+	"sea-noise/internal/ipc"
 	"sea-noise/internal/todoist"
 )
 
@@ -36,6 +39,8 @@ func runServe(args []string) error {
 	timeoutSec := fs.Int("timeout", 1800, "per-inference-call timeout in seconds")
 	dryRun := fs.Bool("dry-run", false, "log every step that would run without executing any side effects")
 	indexDB := fs.String("index-db", "", "SQLite path for the retrieval index (default <vault>/_meta/retrieval.db)")
+	socket := fs.String("socket", "", "Unix-socket path for the JSON-RPC IPC surface (default $SEA_NOISE_SOCKET or ~/.sea-noise/daemon.sock). Empty disables IPC.")
+	noIPC := fs.Bool("no-ipc", false, "disable the IPC listener entirely")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -57,9 +62,50 @@ func runServe(args []string) error {
 	if err := srv.Start(ctx); err != nil {
 		return fmt.Errorf("daemon start: %w", err)
 	}
+
+	var ipcSrv *ipc.Server
+	if !*noIPC {
+		ipcSrv, err = startIPC(ctx, *socket, srv, deps, *dryRun)
+		if err != nil {
+			_ = srv.Stop()
+			return err
+		}
+	}
+
 	<-ctx.Done()
 	fmt.Println("sea-noise daemon stopping...")
+	if ipcSrv != nil {
+		_ = ipcSrv.Stop()
+	}
 	return srv.Stop()
+}
+
+// startIPC resolves the socket path (--socket > $SEA_NOISE_SOCKET >
+// default), validates the sun_path budget, and starts the listener.
+// Returns the running Server so the caller can shut it down on exit.
+func startIPC(ctx context.Context, flagPath string, srv *daemon.Server, deps daemonStepDeps, dryRun bool) (*ipc.Server, error) {
+	socketPath := flagPath
+	if socketPath == "" {
+		p, err := ipc.DefaultSocketPath()
+		if err != nil {
+			return nil, fmt.Errorf("ipc socket path: %w", err)
+		}
+		socketPath = p
+	}
+	if err := ipc.ValidateSocketPath(socketPath); err != nil {
+		return nil, err
+	}
+	indexDBPath := deps.IndexDBPath
+	if indexDBPath == "" {
+		indexDBPath = filepath.Join(deps.VaultRoot, "_meta", "retrieval.db")
+	}
+	handler := newIPCHandler(srv, deps.Exec, deps.VaultRoot, indexDBPath, dryRun)
+	ipcSrv := ipc.New(socketPath, handler)
+	if err := ipcSrv.Start(ctx); err != nil {
+		return nil, fmt.Errorf("ipc start: %w", err)
+	}
+	fmt.Printf("sea-noise ipc listening on %s\n", socketPath)
+	return ipcSrv, nil
 }
 
 // buildDaemonDeps resolves vault + optional collaborators. Errors

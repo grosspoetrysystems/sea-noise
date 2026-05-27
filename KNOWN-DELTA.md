@@ -89,6 +89,14 @@ See `DAEMON.md` for the daemon lifecycle and IPC contract.
 - The inference router type is named `LocalRouter` (`internal/ai/inferencerouter/`). An earlier draft used `StubInferenceRouter`. Shape is identical.
 - Config file is `sea-noise.toml`. Earlier code referenced an older filename; the rename follows the binary rename. The `MIND_PALACE_VAULT` environment variable still works as a fallback for vault path resolution and intentionally retains its historical name for compatibility with the Python prototype's runtime convention.
 
+## IPC socket path budget
+
+The daemon's JSON-RPC IPC listens on a Unix domain socket. Unix domain sockets are bound by `sockaddr_un.sun_path`, which is capped per platform: 104 bytes on Darwin, 108 on Linux (the final byte is reserved for the null terminator on most platforms). We use a conservative cross-platform budget of 103 characters in `internal/ipc.ValidateSocketPath`, and `sea-noise serve` fails fast with `ipc: socket path exceeds sun_path limit` rather than letting the bind syscall return a cryptic error at runtime.
+
+Default path is `$SEA_NOISE_SOCKET` if set, otherwise `~/.sea-noise/daemon.sock`. The 103-byte budget is enough headroom for typical macOS home directories (`/Users/<short-name>/.sea-noise/daemon.sock` is ~40 chars). Users with long usernames or relocated home directories who hit the limit can point `$SEA_NOISE_SOCKET` at `/tmp/sea-noise.sock` or another short path.
+
+The IPC integration tests construct ephemeral sockets under `/tmp/sn-ipc-XXXXXX/s` rather than `t.TempDir()` because `t.TempDir()` under macOS lives at `/var/folders/...` which routinely exceeds the budget by itself.
+
 ## Scoping note for grep-based scrubs
 
 The Python prototype's source name appears in `references/` (parity authority), `testdata/fixture-vault/` (golden fixture), dated `docs/2026-05-16-*` (historical artifacts), and real disk-path documentation in `README.md` and `docs/MIGRATION.md` (the user's Obsidian vault folder is named after the prototype). These instances are intentionally preserved — modifying parity-authority content breaks the parity-first discipline, and disk-path references describe real filesystem state. Any future scrub gate must carve these out explicitly.
