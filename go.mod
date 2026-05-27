@@ -3,6 +3,7 @@ module sea-noise
 go 1.26
 
 require (
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.50.1

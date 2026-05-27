@@ -20,6 +20,7 @@ import (
 	"sea-noise/internal/daemon"
 	"sea-noise/internal/ipc"
 	"sea-noise/internal/todoist"
+	"sea-noise/internal/watcher"
 )
 
 // runServe implements `sea-noise serve`. Starts the resident daemon
@@ -41,6 +42,8 @@ func runServe(args []string) error {
 	indexDB := fs.String("index-db", "", "SQLite path for the retrieval index (default <vault>/_meta/retrieval.db)")
 	socket := fs.String("socket", "", "Unix-socket path for the JSON-RPC IPC surface (default $SEA_NOISE_SOCKET or ~/.sea-noise/daemon.sock). Empty disables IPC.")
 	noIPC := fs.Bool("no-ipc", false, "disable the IPC listener entirely")
+	noWatch := fs.Bool("no-watch", false, "disable the fsnotify vault watcher entirely")
+	debounceMs := fs.Int("watch-debounce-ms", int(watcher.DefaultDebounce/time.Millisecond), "watcher per-path debounce window in milliseconds")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -72,12 +75,56 @@ func runServe(args []string) error {
 		}
 	}
 
+	var w *watcher.Watcher
+	if !*noWatch {
+		w, err = startWatcher(ctx, srv, deps.VaultRoot, time.Duration(*debounceMs)*time.Millisecond)
+		if err != nil {
+			if ipcSrv != nil {
+				_ = ipcSrv.Stop()
+			}
+			_ = srv.Stop()
+			return err
+		}
+	}
+
 	<-ctx.Done()
 	fmt.Println("sea-noise daemon stopping...")
+	if w != nil {
+		_ = w.Stop()
+	}
 	if ipcSrv != nil {
 		_ = ipcSrv.Stop()
 	}
 	return srv.Stop()
+}
+
+// startWatcher wires the fsnotify vault watcher to fire
+// daemon.PipelineInbox on new inbox files. Re-index callbacks are
+// stubbed until the per-note retrieval refresh seam lands (today the
+// index pipeline rebuilds the whole DB in one transaction, so per-
+// note re-index is a separate workflow we add when retrieval gains
+// incremental updates).
+func startWatcher(ctx context.Context, srv *daemon.Server, vaultRoot string, debounce time.Duration) (*watcher.Watcher, error) {
+	w, err := watcher.New(watcher.Config{
+		VaultRoot: vaultRoot,
+		Debounce:  debounce,
+		Actions: watcher.Actions{
+			OnInboxCreate: func(ctx context.Context, _ string) {
+				if err := srv.RunPipeline(ctx, daemon.PipelineInbox, time.Now().UTC()); err != nil &&
+					!errors.Is(err, daemon.ErrSkippedAlreadyRan) {
+					fmt.Printf("sea-noise watch inbox pipeline: %v\n", err)
+				}
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("watcher new: %w", err)
+	}
+	if err := w.Start(ctx); err != nil {
+		return nil, fmt.Errorf("watcher start: %w", err)
+	}
+	fmt.Printf("sea-noise watching %s (debounce %s)\n", vaultRoot, debounce)
+	return w, nil
 }
 
 // startIPC resolves the socket path (--socket > $SEA_NOISE_SOCKET >

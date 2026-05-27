@@ -97,6 +97,23 @@ Default path is `$SEA_NOISE_SOCKET` if set, otherwise `~/.sea-noise/daemon.sock`
 
 The IPC integration tests construct ephemeral sockets under `/tmp/sn-ipc-XXXXXX/s` rather than `t.TempDir()` because `t.TempDir()` under macOS lives at `/var/folders/...` which routinely exceeds the budget by itself.
 
+## Vault watcher debounce + fsnotify quirks
+
+`internal/watcher` wraps `github.com/fsnotify/fsnotify` to turn vault filesystem events into typed actions: new `inbox/*.md` files fire the inbox pipeline; markdown writes anywhere under the vault fire a per-note re-index callback. Defaults:
+
+- **Per-path debounce:** 200ms (`watcher.DefaultDebounce`). Tunable from `sea-noise serve --watch-debounce-ms=N`. Picked to collapse a typical editor's save burst (Obsidian, vim with `.swp`-then-rename, JetBrains) into a single callback while keeping "drop a note in inbox/, see processing start" feel live.
+- **Excluded dirs:** `.git`, `.obsidian`, `.trash`, `_meta`, `node_modules`. `_meta` is excluded specifically because the daemon writes processing logs and marker files there — without exclusion the watcher would echo its own writes back as modify events.
+- **Per-note re-index:** wired through `Actions.OnNoteModify` but the daemon-side handler is currently a no-op stub. The existing retrieval index pipeline rebuilds the whole DB in one transaction; per-note incremental update is a separate workflow that lands when retrieval gains incremental updates. Watcher already emits the right callback shape so the seam is ready.
+
+fsnotify quirks the implementation accommodates:
+
+- **No recursive watch.** Neither kqueue (Darwin) nor inotify (Linux) recurses. The watcher walks the vault on Start to register every directory and adds new subdirs on Create events from the parent. New-subdir registration has a tiny race window (the dir-add event must process before a child write fires); the integration test for this covers it via a bounded retry loop rather than a fixed sleep.
+- **Atomic-rename editors emit delete+create rather than write.** vim with `set backupcopy=auto`, Obsidian's mobile sync, and JetBrains products do this. The watcher treats a Create event for a path that already exists as equivalent to a Write, so callers don't have to special-case it.
+- **macOS coalesces, then doesn't.** kqueue usually emits a single event per save but occasionally fires 2–3 for one user action (often around iCloud sync). The debounce window collapses these.
+- **Startup catch-up.** On Start, the watcher scans `inbox/` and fires `OnInboxCreate` for every pre-existing `.md`. Notes the user dropped while the daemon was off get processed on next boot. This matches the prototype's "process whatever's there" semantics for the inbox queue.
+
+The integration tests run under `t.TempDir()` exercising the real fsnotify backend (no mock); flake protection comes from channel-based wait-for-callback (no `time.Sleep` to dodge scheduling) and a generous 2-second event timeout that accommodates loaded CI machines.
+
 ## Scoping note for grep-based scrubs
 
 The Python prototype's source name appears in `references/` (parity authority), `testdata/fixture-vault/` (golden fixture), dated `docs/2026-05-16-*` (historical artifacts), and real disk-path documentation in `README.md` and `docs/MIGRATION.md` (the user's Obsidian vault folder is named after the prototype). These instances are intentionally preserved — modifying parity-authority content breaks the parity-first discipline, and disk-path references describe real filesystem state. Any future scrub gate must carve these out explicitly.
