@@ -16,6 +16,10 @@
     "source": "HOME.md"
   },
   {
+    "links": [],
+    "source": "_meta/topic-frequencies.md"
+  },
+  {
     "links": [
       "2026-03-16-obsidian-claude-code-personal-os",
       "2026-03-16-supercharged-second-brain-claude-code",

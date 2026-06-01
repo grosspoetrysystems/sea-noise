@@ -10,9 +10,9 @@
 # Used by the prototype scripts that capture-parity.py will eventually
 # invoke when more surfaces get ported:
 python-frontmatter
+requests  # imported by references/scripts/enrich-topics.py at module load; needed by testdata/scripts/capture-enrich-topics.py
 
 # Future additions (when their respective scripts get ported):
-#   requests             # sync-todoist*
 #   youtube-transcript-api  # fetch-youtube-transcript
 #
 # Capture environment:
