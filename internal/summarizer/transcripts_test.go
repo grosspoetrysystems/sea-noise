@@ -196,6 +196,57 @@ func mustRead(t *testing.T, path string) string {
 	return string(b)
 }
 
+func TestWalkTranscriptCandidates(t *testing.T) {
+	vault := t.TempDir()
+	mustWriteFile(t, vault, "notes/references/qualifying.md", longTranscriptNote("Qualifying"))
+	mustWriteFile(t, vault, "notes/references/already.md", `---
+title: Already Enriched
+---
+
+## Research Context
+
+prior summary
+
+## Transcript
+
+`+longText(1000))
+	mustWriteFile(t, vault, "notes/references/short.md", `---
+title: Short
+---
+
+## Transcript
+
+too short
+`)
+	mustWriteFile(t, vault, "notes/references/no-transcript.md", `---
+title: Plain
+---
+
+just a note, no transcript header
+`)
+
+	cands, err := WalkTranscriptCandidates(EnrichTranscriptsInput{VaultRoot: vault})
+	if err != nil {
+		t.Fatalf("WalkTranscriptCandidates: %v", err)
+	}
+	if len(cands) != 1 {
+		t.Fatalf("len(cands) = %d, want 1; got %+v", len(cands), cands)
+	}
+	got := cands[0]
+	if got.Rel != "notes/references/qualifying.md" {
+		t.Errorf("Rel = %q, want notes/references/qualifying.md", got.Rel)
+	}
+	if got.SkillInput.SourceDescription != "a YouTube video transcript" {
+		t.Errorf("SourceDescription = %q", got.SkillInput.SourceDescription)
+	}
+	if got.SkillInput.TitleContext != " about 'Qualifying'" {
+		t.Errorf("TitleContext = %q, want \" about 'Qualifying'\"", got.SkillInput.TitleContext)
+	}
+	if !strings.Contains(got.SkillInput.Content, "the quick brown fox") {
+		t.Errorf("Content missing transcript body (got first 80 chars: %q)", got.SkillInput.Content[:min(80, len(got.SkillInput.Content))])
+	}
+}
+
 func longTranscriptNote(title string) string {
 	return `---
 title: ` + title + `

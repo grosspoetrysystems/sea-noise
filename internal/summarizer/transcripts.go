@@ -48,12 +48,23 @@ var DefaultSearchDirs = []string{
 	"inbox",
 }
 
-// summarizeContentInput is the data the summarize-content skill template
+// SummarizeContentInput is the data the summarize-content skill template
 // expects. Field names match the template's {{.Field}} references.
-type summarizeContentInput struct {
+// Exported so parity-discovery callers can render the same prompt the
+// live workflow would assemble without invoking the LLM.
+type SummarizeContentInput struct {
 	Content           string
 	TitleContext      string
 	SourceDescription string
+}
+
+// TranscriptCandidate is one vault note that qualifies for transcript
+// enrichment, paired with the exact skill input the live workflow
+// would pass to Execute. Produced by WalkTranscriptCandidates; consumed
+// by parity-discovery to render Go-side prompts for envelope capture.
+type TranscriptCandidate struct {
+	Rel        string                // vault-relative path
+	SkillInput SummarizeContentInput // exact input EnrichTranscripts would pass
 }
 
 // EnrichTranscripts walks the configured vault directories, finds
@@ -109,6 +120,114 @@ func EnrichTranscripts(ctx context.Context, exec *skill.Executor, in EnrichTrans
 	}
 
 	return result, nil
+}
+
+// WalkTranscriptCandidates walks the configured vault directories the
+// same way EnrichTranscripts does and returns every note that would
+// qualify for enrichment, in the same iteration order, with the exact
+// skill input the live workflow would assemble. Pure read; never
+// writes.
+//
+// Used by parity-discovery (`sea-noise parity-discover`) to render
+// Go-side prompts for envelope capture without invoking the LLM.
+func WalkTranscriptCandidates(in EnrichTranscriptsInput) ([]TranscriptCandidate, error) {
+	var out []TranscriptCandidate
+
+	dirs := in.SearchDirs
+	if len(dirs) == 0 {
+		dirs = DefaultSearchDirs
+	}
+
+	for _, rel := range dirs {
+		dir := filepath.Join(in.VaultRoot, rel)
+		entries, err := os.ReadDir(dir)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", dir, err)
+		}
+
+		paths := make([]string, 0, len(entries))
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+				continue
+			}
+			paths = append(paths, filepath.Join(dir, e.Name()))
+		}
+		sort.Strings(paths)
+
+		for _, p := range paths {
+			cand, ok, err := scanTranscriptCandidate(in.VaultRoot, p)
+			if err != nil {
+				return nil, err
+			}
+			if ok {
+				out = append(out, cand)
+			}
+		}
+	}
+
+	return out, nil
+}
+
+// scanTranscriptCandidate inspects one note path and returns a
+// candidate when the note qualifies for transcript enrichment under
+// the same rules enrichOne applies (has `## Transcript`, not already
+// enriched, transcript body ≥ MinContentChars after the header).
+// IO errors propagate; qualification failures return ok=false.
+func scanTranscriptCandidate(vaultRoot, path string) (TranscriptCandidate, bool, error) {
+	rel, _ := filepath.Rel(vaultRoot, path)
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return TranscriptCandidate{}, false, fmt.Errorf("read %s: %w", path, err)
+	}
+	content := string(raw)
+
+	fm, err := markdown.ParseFrontmatterYAML(content)
+	if err != nil {
+		return TranscriptCandidate{}, false, nil
+	}
+	body := fm.Body
+
+	transcriptHeader := "## Transcript"
+	idx := strings.Index(body, transcriptHeader)
+	if idx < 0 {
+		return TranscriptCandidate{}, false, nil
+	}
+	if isAlreadyEnriched(body) {
+		return TranscriptCandidate{}, false, nil
+	}
+
+	transcript := strings.TrimSpace(body[idx+len(transcriptHeader):])
+	if len(transcript) < MinContentChars {
+		return TranscriptCandidate{}, false, nil
+	}
+
+	title, _ := fm.Fields["title"].(string)
+	if title == "" {
+		title = strings.TrimSuffix(filepath.Base(path), ".md")
+	}
+
+	trimmed := transcript
+	if len(trimmed) > MaxContentChars {
+		trimmed = trimmed[:MaxContentChars]
+	}
+
+	titleContext := ""
+	if title != "" {
+		titleContext = fmt.Sprintf(" about '%s'", title)
+	}
+
+	return TranscriptCandidate{
+		Rel: rel,
+		SkillInput: SummarizeContentInput{
+			Content:           trimmed,
+			TitleContext:      titleContext,
+			SourceDescription: "a YouTube video transcript",
+		},
+	}, true, nil
 }
 
 type outcomeKind int
@@ -175,7 +294,7 @@ func enrichOne(ctx context.Context, exec *skill.Executor, vaultRoot, path string
 		titleContext = fmt.Sprintf(" about '%s'", title)
 	}
 
-	response, err := exec.Execute(ctx, "summarize-content", summarizeContentInput{
+	response, err := exec.Execute(ctx, "summarize-content", SummarizeContentInput{
 		Content:           trimmed,
 		TitleContext:      titleContext,
 		SourceDescription: "a YouTube video transcript",

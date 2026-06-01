@@ -97,6 +97,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sea-noise run: %v\n", err)
 			os.Exit(1)
 		}
+	case "parity-discover":
+		if err := runParityDiscover(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise parity-discover: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
 		printUsage()
