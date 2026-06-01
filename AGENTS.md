@@ -47,9 +47,21 @@ Empty output = no rules matched. JSON with `additionalContext` = those rules wil
 ```sh
 ./scripts/build.sh          # CGO_ENABLED=0 go build ./...
 ./scripts/test.sh           # go test ./...
-./scripts/grep-gates.sh     # architectural invariants (no model literals, no Python, no MCP)
+./scripts/grep-gates.sh     # architectural invariants (no model literals, no Python, no MCP, embedded-skill mirror in sync)
+./scripts/sync-skills.sh    # mirror inference skills into the go:embed target after editing them
 node --test .agents/shared/hooks/*.test.mjs .claude/shared/hooks/*.test.mjs   # rule-injector tests
 ```
+
+## Inference skills
+
+Inference skill files live at two locations:
+
+- **Canonical source:** `.agents/shared/skills/inference/<name>.md`. Edit here. Tracked in git.
+- **Go-embed mirror:** `internal/ai/skill/embed/inference/<name>.md`. Auto-synced from the source via `scripts/sync-skills.sh`. Tracked in git so `go build ./cmd/sea-noise/` produces a self-contained binary without a separate sync step.
+
+After editing any skill file, run `scripts/sync-skills.sh` before committing. A grep-gate in `scripts/grep-gates.sh` enforces that the two trees match byte-for-byte; CI will fail otherwise.
+
+At runtime, `sea-noise` subcommands prefer `--skills-dir <path>` when set (use this for dev iteration against the canonical source), otherwise load the embedded skills. The shipped binary is self-contained — `go install ./cmd/sea-noise/` produces a `sea-noise` executable that works from any CWD without a repo checkout.
 
 Vault path is resolved from `MIND_PALACE_VAULT` env var or `vault.path` in `sea-noise.toml`. Env var wins. The `MIND_PALACE_VAULT` env var name is preserved for compatibility with the Python prototype's runtime convention.
 

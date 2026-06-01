@@ -172,13 +172,9 @@ func buildDaemonDeps(cliCommand, cliArgsList, skillsDir string, timeoutSec int, 
 	}
 
 	if cliCommand != "" {
-		skillsPath := skillsDir
-		if skillsPath == "" {
-			skillsPath = guessSkillsDir()
-		}
-		skills, err := skill.LoadFromDir(skillsPath)
+		skills, err := loadSkills(skillsDir)
 		if err != nil {
-			return daemonStepDeps{}, fmt.Errorf("load skills from %s: %w", skillsPath, err)
+			return daemonStepDeps{}, fmt.Errorf("load skills: %w", err)
 		}
 		tx := &transport.CLITransport{
 			Command:      cliCommand,

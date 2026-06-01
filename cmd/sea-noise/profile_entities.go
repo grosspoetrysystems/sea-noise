@@ -43,20 +43,16 @@ func runProfileEntities(args []string) error {
 		return err
 	}
 
-	skillsPath := *skillsDir
-	if skillsPath == "" {
-		skillsPath = guessSkillsDir()
-	}
-	skills, err := skill.LoadFromDir(skillsPath)
+	skills, err := loadSkills(*skillsDir)
 	if err != nil {
-		return fmt.Errorf("load skills from %s: %w", skillsPath, err)
+		return fmt.Errorf("load skills: %w", err)
 	}
 	if _, ok := skills["generate-entity-profile"]; !ok {
-		return errors.New("generate-entity-profile skill not found; check --skills-dir")
+		return errors.New("generate-entity-profile skill not found; pass --skills-dir to override embedded skills")
 	}
 	if *auto {
 		if _, ok := skills["filter-entity-candidates"]; !ok {
-			return errors.New("filter-entity-candidates skill not found (required for --auto); check --skills-dir")
+			return errors.New("filter-entity-candidates skill not found (required for --auto); pass --skills-dir to override embedded skills")
 		}
 	}
 

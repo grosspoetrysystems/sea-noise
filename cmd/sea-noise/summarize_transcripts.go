@@ -37,16 +37,12 @@ func runSummarizeTranscripts(args []string) error {
 		return err
 	}
 
-	skillsPath := *skillsDir
-	if skillsPath == "" {
-		skillsPath = guessSkillsDir()
-	}
-	skills, err := skill.LoadFromDir(skillsPath)
+	skills, err := loadSkills(*skillsDir)
 	if err != nil {
-		return fmt.Errorf("load skills from %s: %w", skillsPath, err)
+		return fmt.Errorf("load skills: %w", err)
 	}
 	if _, ok := skills["summarize-content"]; !ok {
-		return errors.New("summarize-content skill not found; check --skills-dir")
+		return errors.New("summarize-content skill not found; pass --skills-dir to override embedded skills")
 	}
 
 	if *cliCommand == "" {
@@ -86,10 +82,30 @@ func runSummarizeTranscripts(args []string) error {
 	return nil
 }
 
+// loadSkills returns the inference skill set: if skillsDir is set
+// explicitly (--skills-dir flag), reads from that on-disk path; else
+// uses the skills baked into the binary at build time via
+// skill.LoadEmbedded. The embedded path is what makes the shipped
+// binary self-contained — `sea-noise serve` works from anywhere
+// without a repo checkout. Dev-time skill iteration: pass
+// --skills-dir <repo>/.agents/shared/skills/inference to pick up
+// live edits.
+func loadSkills(skillsDir string) (map[string]*skill.Skill, error) {
+	if skillsDir != "" {
+		return skill.LoadFromDir(skillsDir)
+	}
+	return skill.LoadEmbedded()
+}
+
 // guessSkillsDir resolves the default skills directory by walking up
 // from the binary's location (and CWD) until it finds .agents/shared/
 // skills/inference. Returns the empty string if it can't find one;
 // the caller surfaces a clear error.
+//
+// Retained for parity-discover's --skills-dir flag where dev-tree
+// auto-detection is genuinely useful (capture scripts otherwise
+// would need absolute paths). Not used by the daemon or one-shot
+// subcommands — those default to embedded via loadSkills.
 func guessSkillsDir() string {
 	candidates := []string{}
 	if exe, err := os.Executable(); err == nil {

@@ -53,14 +53,11 @@ func runParityDiscover(args []string) error {
 		return errors.New("--vault required")
 	}
 
-	skillsPath := *skillsDir
-	if skillsPath == "" {
-		skillsPath = guessSkillsDir()
-	}
-	skills, err := skill.LoadFromDir(skillsPath)
+	skills, err := loadSkills(*skillsDir)
 	if err != nil {
-		return fmt.Errorf("load skills from %s: %w", skillsPath, err)
+		return fmt.Errorf("load skills: %w", err)
 	}
+	skillsPath := *skillsDir // used in error messages below; empty string = "embedded"
 
 	switch *skillName {
 	case "summarize-content":

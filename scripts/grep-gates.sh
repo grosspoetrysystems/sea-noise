@@ -69,6 +69,23 @@ if grep -qE '(kong|koanf)' go.mod 2>/dev/null; then
   fail=1
 fi
 
+# Gate 6: embedded skill mirror is in sync with the canonical source.
+# .agents/shared/skills/inference/ is the source of truth; the
+# go:embed target at internal/ai/skill/embed/inference/ must match
+# byte-for-byte. Drift means `scripts/sync-skills.sh` wasn't run
+# after a skill edit, and the shipped binary would carry stale
+# embedded content.
+src_dir=".agents/shared/skills/inference"
+mirror_dir="internal/ai/skill/embed/inference"
+if [ -d "${src_dir}" ] && [ -d "${mirror_dir}" ]; then
+  if ! diff -r "${src_dir}" "${mirror_dir}" > /dev/null 2>&1; then
+    echo "GATE FAIL: embedded skill mirror out of sync with ${src_dir}."
+    echo "Run scripts/sync-skills.sh to refresh ${mirror_dir} before committing."
+    diff -r "${src_dir}" "${mirror_dir}" || true
+    fail=1
+  fi
+fi
+
 if [ "${fail}" -ne 0 ]; then
   echo "" >&2
   echo "One or more grep gates failed. See ARCHITECTURE.md §6 and §7 and .tempor/KNOWN-DELTA.md." >&2

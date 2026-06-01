@@ -35,16 +35,12 @@ func runProcessInbox(args []string) error {
 		return err
 	}
 
-	skillsPath := *skillsDir
-	if skillsPath == "" {
-		skillsPath = guessSkillsDir()
-	}
-	skills, err := skill.LoadFromDir(skillsPath)
+	skills, err := loadSkills(*skillsDir)
 	if err != nil {
-		return fmt.Errorf("load skills from %s: %w", skillsPath, err)
+		return fmt.Errorf("load skills: %w", err)
 	}
 	if _, ok := skills[inboxprocess.SkillName]; !ok {
-		return errors.New("inbox-process skill not found; check --skills-dir")
+		return errors.New("inbox-process skill not found; pass --skills-dir to override embedded skills")
 	}
 	if *cliCommand == "" {
 		return errors.New("--cli-command required (e.g., claude, codex)")

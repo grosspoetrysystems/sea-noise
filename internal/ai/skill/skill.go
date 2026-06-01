@@ -110,12 +110,20 @@ func LoadFile(path string) (*Skill, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
+	return parseSkillBytes(raw, path)
+}
+
+// parseSkillBytes is the shared parse path for both on-disk and
+// embedded skill files. source is used in the returned Skill's
+// Source field and in error messages — pass the file path for
+// LoadFile, or `embedded://<rel-path>` for the embedded loader.
+func parseSkillBytes(raw []byte, source string) (*Skill, error) {
 	fm, err := markdown.ParseFrontmatterYAML(string(raw))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %v", ErrInvalidSkill, path, err)
+		return nil, fmt.Errorf("%w: %s: %v", ErrInvalidSkill, source, err)
 	}
 
-	s := &Skill{Source: path, Body: fm.Body}
+	s := &Skill{Source: source, Body: fm.Body}
 
 	if v, ok := fm.Fields["name"].(string); ok {
 		s.Name = v
@@ -127,10 +135,10 @@ func LoadFile(path string) (*Skill, error) {
 		s.Kind = v
 	}
 	if s.Name == "" {
-		return nil, fmt.Errorf("%w: %s: missing name", ErrInvalidSkill, path)
+		return nil, fmt.Errorf("%w: %s: missing name", ErrInvalidSkill, source)
 	}
 	if s.Kind != "inference" {
-		return nil, fmt.Errorf("%w: %s: kind=%q, want %q", ErrInvalidSkill, path, s.Kind, "inference")
+		return nil, fmt.Errorf("%w: %s: kind=%q, want %q", ErrInvalidSkill, source, s.Kind, "inference")
 	}
 
 	s.Inputs = parseInputs(fm.Fields["inputs"])

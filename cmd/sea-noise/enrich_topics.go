@@ -91,20 +91,16 @@ Both must be set for crawling; otherwise enrichment is vault-only.`)
 		return err
 	}
 
-	skillsPath := *skillsDir
-	if skillsPath == "" {
-		skillsPath = guessSkillsDir()
-	}
-	skills, err := skill.LoadFromDir(skillsPath)
+	skills, err := loadSkills(*skillsDir)
 	if err != nil {
-		return fmt.Errorf("load skills from %s: %w", skillsPath, err)
+		return fmt.Errorf("load skills: %w", err)
 	}
 	if _, ok := skills["generate-research-brief"]; !ok {
-		return errors.New("generate-research-brief skill not found; check --skills-dir")
+		return errors.New("generate-research-brief skill not found; pass --skills-dir to override embedded skills")
 	}
 	if *notePath != "" {
 		if _, ok := skills["enrich-single-note"]; !ok {
-			return errors.New("enrich-single-note skill not found (required for --note); check --skills-dir")
+			return errors.New("enrich-single-note skill not found (required for --note); pass --skills-dir to override embedded skills")
 		}
 	}
 	if *cliCommand == "" {
