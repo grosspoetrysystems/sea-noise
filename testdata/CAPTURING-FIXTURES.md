@@ -81,6 +81,27 @@ Top-level fixture composition:
 | `export/` | 1 | sort, head 1 |
 | **total** | **35** | |
 
+## Capturing LLM envelopes (for parity tests of LLM-touching workflows)
+
+Stdlib-only `capture-parity.py` covers the deterministic surfaces (frontmatter, links, signal, retrieval index). LLM-touching workflows (`summarize-transcripts` first, more in T-SCALE) need a separate capture pass that records the prototype's LLM response per invocation so the Go port can replay it via `internal/parity.RecordedTransport`.
+
+That capture lives at [`scripts/capture-llm-envelopes.py`](./scripts/capture-llm-envelopes.py) and uses the [`scripts/claude-shim.py`](./scripts/claude-shim.py) PATH-shim. The shape (hybrid two-pass capture — "path A" in the W2 spike):
+
+1. **Discover Go-side prompts.** Build `sea-noise`, run `sea-noise parity-discover --skill <name> --vault testdata/fixture-vault`. This walks the fixture with the same qualification rules the live workflow applies and prints the rendered Go skill prompt per qualifying note — without invoking the LLM.
+2. **Run the prototype with PATH-shim.** Copy the fixture vault to a temp dir, drop the prototype script alongside (so its hard-coded `VAULT = Path(__file__).parent.parent` resolves to the temp vault), put `claude-shim.py` as `claude` first on PATH, run the prototype via the project venv. Each `claude -p` call is intercepted: the shim records `(prompt, response, skill_sha)` and passes through to the real `claude` binary.
+3. **Pair and emit.** For each Go prompt, find the matching shim-captured envelope by transcript-content overlap. Re-emit under the Go prompt's SHA256-hex-trunc-16 hash at `testdata/envelopes/<workflow>/<hash>.json` (matches `internal/parity.HashPrompt`).
+4. **Snapshot post-state.** Save the post-Python vault state to `testdata/expected/<workflow>/post-state/`. The parity test diffs the Go workflow's post-state against this snapshot under `internal/parity.DefaultEquivalence` (files present + frontmatter keys + wikilink set; LLM-authored body prose is not compared per `.tempor/PARITY.md` decision 2).
+
+Run when fixture content, prototype source, or the Go skill template changes:
+
+```sh
+.venv/bin/python testdata/scripts/capture-llm-envelopes.py
+```
+
+Real `claude -p` calls happen during this capture. Keep the fixture small.
+
+Required venv state: `python-frontmatter` from `requirements.txt`. The capture script also needs a usable `claude` binary on PATH (or `REAL_CLAUDE=/path/to/claude`).
+
 ## Live-vault drift
 
 The live iCloud vault evolves; the fixture does not. When the rewrite ships and parity is demonstrated against this fixture, the fixture remains valid. Future expansions (more case-types, edge cases discovered later) should add to the fixture and re-run capture — not replace the existing notes.
