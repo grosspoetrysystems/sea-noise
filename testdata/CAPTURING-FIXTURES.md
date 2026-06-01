@@ -102,6 +102,28 @@ Real `claude -p` calls happen during this capture. Keep the fixture small.
 
 Required venv state: `python-frontmatter` from `requirements.txt`. The capture script also needs a usable `claude` binary on PATH (or `REAL_CLAUDE=/path/to/claude`).
 
+### profile-entities (two-phase workflow)
+
+`profile-entities` fires two distinct skills per run: a single `filter-entity-candidates` call that classifies which regex-NER candidates are real entities, followed by up to `MAX_PROFILES_PER_RUN` (= 5) `generate-entity-profile` calls — one per kept entity in ranked-by-NER-count order. `testdata/scripts/capture-profile-entities.py` extends the W2 hybrid shape with two-pass discovery to handle this:
+
+1. **Discover the filter prompt.** `sea-noise parity-discover --skill profile-entities --mode filter --vault testdata/fixture-vault` — emits a single `{kind: "filter", prompt}` entry rendered against the fixture's ranked candidates.
+2. **Run the prototype.** Same PATH-shim setup as `summarize-transcripts`, but the shim's `SEA_NOISE_CAPTURE_SKILL` is set to a placeholder (`profile-entities-pending`) because the shim can't see which skill each `claude -p` call serves. The capture script fixes up `skill_name` + `skill_sha` post-pairing.
+3. **Classify and pair envelopes.** The capture script loads every shim envelope, classifies each by a prompt-content marker (`You are filtering entity candidates` → filter; `Generate a profile note for '<entity>'` → profile, entity extracted from the prompt). One filter envelope; up to five profile envelopes keyed by entity.
+4. **Parse the filter response → keep set.** The capture script extracts the `{name, keep, type}` JSON array from the filter envelope's response (same regex as the prototype's `filter_candidates_with_claude`), yielding the name + type for each kept entity.
+5. **Second-pass discover.** `sea-noise parity-discover --skill profile-entities --mode profile --keep-names <...> --keep-types <...>` — emits `[{kind: "profile", rel: <entity>, prompt}, ...]` one per kept entity in ranked order, capped at `MaxPerRun=5`.
+6. **Re-key + emit.** Each profile envelope from the prototype is paired with its Go counterpart by entity name (the natural key for this workflow — content-overlap matching is unnecessary). Re-emit under the Go prompt hash at `testdata/envelopes/profile-entities/<hash>.json` with `skill_name` and `skill_sha` corrected.
+7. **Snapshot post-state.** Save to `testdata/expected/profile-entities/post-state/` as usual.
+
+Run with:
+
+```sh
+.venv/bin/python testdata/scripts/capture-profile-entities.py
+```
+
+Re-run when the fixture vault's entity counts change, when `references/scripts/profile-entities.py` changes, or when either `filter-entity-candidates.md` or `generate-entity-profile.md` skill template changes. Burns 1 filter + up to 5 profile `claude -p` calls.
+
+The Go parity test pins `Today: 2026-06-01` to match the captured snapshot's profile filenames (`notes/entities/2026-06-01-profile-<slug>.md`). Re-capturing on a different date requires re-pinning the test's `Today` constant in lockstep.
+
 ## Live-vault drift
 
 The live iCloud vault evolves; the fixture does not. When the rewrite ships and parity is demonstrated against this fixture, the fixture remains valid. Future expansions (more case-types, edge cases discovered later) should add to the fixture and re-run capture — not replace the existing notes.
