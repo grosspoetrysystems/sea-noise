@@ -177,6 +177,14 @@
       "frontmatter_json": "{\"author\":\"Sam Kriss\",\"consumed\":false,\"date\":\"2026-03-10T00:00:00Z\",\"description\":\"Tech's new generation and the end of thinking\",\"enriched\":\"2026-03-11\",\"published\":\"2026-03-01T00:00:00Z\",\"source\":\"https://harpers.org/archive/2026/03/childs-play-sam-kriss-ai-startup-roy-lee/\",\"tags\":[\"reference\",\"clippings\"],\"title\":\"Child's Play, by Sam Kriss\"}"
     },
     {
+      "id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "path": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "type": "",
+      "title": "Simple Made Easy, by Rich Hickey",
+      "tags": "",
+      "frontmatter_json": "{\"author\":\"Rich Hickey\",\"consumed\":false,\"date\":\"2026-04-12T00:00:00Z\",\"description\":\"Strange Loop talk on the difference between simple and easy\",\"published\":\"2011-10-20T00:00:00Z\",\"source\":\"https://www.youtube.com/watch?v=SxdOUGdseq4\",\"tags\":[\"reference\",\"clippings\",\"tech/software-design\"],\"title\":\"Simple Made Easy, by Rich Hickey\"}"
+    },
+    {
       "id": "notes/references/briefs/2026-03-16-agent-orchestration-research-brief.md",
       "path": "notes/references/briefs/2026-03-16-agent-orchestration-research-brief.md",
       "type": "",
@@ -2889,6 +2897,51 @@
       "body": "**Podcasts:**\n- *The Ezra Klein Show*: **\"How Quickly Will A.I. Agents Rip Through the Economy?\"** (Feb 2026) — Klein examines the exact agent-economy bifurcation Kriss describes, including how Claude Code marked a pivot point in agentic AI.\n- *Dwarkesh Podcast*: **Dario Amodei interview** (2026) — Amodei (Anthropic CEO, maker of Claude) discusses the gap between AI reasoning and AI agency, the same gap Alexander identifies with the \"lizard brain\" metaphor in the article.\n- *Decoding the Gurus* by Chris Kavanagh \u0026 Matt Browne — critical outsider analysis of rationalist thought leaders including Scott Alexander; useful counterweight to the insider mythology Kriss is both documenting and puncturing."
     },
     {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "ordinal": 0,
+      "body": "Strange Loop keynote from Rich Hickey. The core distinction: *simple* (sim-plex — one fold/twist) is objective, structural, about the thing itself. *Easy* (adjacent, near at hand) is subjective, relative to where you are right now. Conflating them produces software that feels productive in the moment and rots underneath. Includes the famous knit/braid/cardigan analogy and a long catalog of constructs sorted along the simple/complex axis: state vs values, methods vs functions, vars vs managed refs, inheritance vs polymorphism à la carte, syntax vs data, conditionals vs rules."
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "ordinal": 1,
+      "body": "## Related"
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "ordinal": 2,
+      "body": "- [[2026-04-08-out-of-the-tar-pit-paper]] — Moseley \u0026 Marks land in the same place from a different angle\n- [[2026-04-15-worse-is-better-essay]] — the other side of the trade-off"
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "ordinal": 3,
+      "body": "## Transcript"
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "ordinal": 4,
+      "body": "Hi, my name's Rich Hickey, I'm the author of Clojure and I work for Cognitect. Today I want to talk about simplicity. And it might seem like an odd thing to talk about, because simplicity sounds easy, right? Like, why are we even here. But I think simplicity is one of the most important things we have to think about as software developers, and one of the most misunderstood. So I want to spend some time pulling these two words apart, because they get used interchangeably and it causes us real problems."
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "ordinal": 5,
+      "body": "Let's start with the words themselves. Simple comes from the Latin sim-plex, which means one fold or one twist or one braid. The opposite of simple is complex, which means braided together, many twists, many folds. So simple is an objective notion. Something is simple or it isn't, based on its structure, based on what it is, based on the relationships between its parts. It doesn't matter who's looking at it. A thing has one role, or one task, or one concept, or one dimension. It's about lack of interleaving, not lack of cardinality. You can have a lot of simple things."
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "ordinal": 6,
+      "body": "Easy is a totally different word. Easy comes from the Latin adjacens, lying nearby. Easy is relative. Something is easy with respect to where you are, with respect to what you already know, with respect to your tools, with respect to your experience. So easy is subjective, and it changes over time, and it changes per person. The thing you find easy this year, you might find easier next year, or you might find harder if you stop doing it. The same construct can be easy for one person and hard for another."
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "ordinal": 7,
+      "body": "Now here's where we get into trouble as developers. We reach for the easy thing because we're under time pressure. We have a deadline, we have a feature to ship, we have a manager asking when it's going to be done. So we reach for the thing nearest at hand, the thing we already know, the thing that lets us type something into the editor and see a result. And we call that being productive. But what we've often done is reach for something complex, because it's easy. It's nearby. It's familiar. And we've put complexity into the program that we now have to live with for the lifetime of that program, which is much longer than the lifetime of the deadline that made us reach for it."
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "ordinal": 8,
+      "body": "I want to do an inventory of constructs we use every day and sort them along the simple-versus-complex axis, ignoring whether they're easy or hard. So: state is complex, because state braids together value and time and identity. Values are simple. Methods are complex, because they braid together function and state and namespace. Functions are simple. Vars are complex; managed references are simple. Inheritance is complex; polymorphism à la carte is simple. Syntax is complex; data is simple. Conditionals are complex; rules are simple. ORM is complex; declarative data manipulation is simple. None of this is about easy. Some of the simple things are not easy to use, especially if you don't have experience with them."
+    },
+    {
       "note_id": "notes/references/briefs/2026-03-16-agent-orchestration-research-brief.md",
       "ordinal": 0,
       "body": "# Research Brief: agent-orchestration"
@@ -3316,6 +3369,18 @@
     {
       "note_id": "notes/references/2026-03-10-childs-play-sam-kriss.md",
       "tag": "reference"
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "tag": "clippings"
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "tag": "reference"
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "tag": "tech/software-design"
     },
     {
       "note_id": "notes/references/briefs/2026-03-16-agent-orchestration-research-brief.md",
@@ -4384,6 +4449,14 @@
       "to_note_path": "2026-03-11-paperclip-zero-human-orchestration"
     },
     {
+      "from_note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "to_note_path": "2026-04-08-out-of-the-tar-pit-paper"
+    },
+    {
+      "from_note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "to_note_path": "2026-04-15-worse-is-better-essay"
+    },
+    {
       "from_note_id": "notes/references/briefs/2026-03-16-agent-orchestration-research-brief.md",
       "to_note_path": "2026-03-11-tmux-agent-orchestration"
     },
@@ -4575,6 +4648,11 @@
       "note_id": "notes/references/2026-03-10-childs-play-sam-kriss.md",
       "kind": "date",
       "value": "2026-03-10 00:00:00 +0000 UTC"
+    },
+    {
+      "note_id": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md",
+      "kind": "date",
+      "value": "2026-04-12 00:00:00 +0000 UTC"
     },
     {
       "note_id": "notes/references/briefs/2026-03-16-agent-orchestration-research-brief.md",

@@ -453,6 +453,13 @@
   },
   {
     "links": [
+      "2026-04-08-out-of-the-tar-pit-paper",
+      "2026-04-15-worse-is-better-essay"
+    ],
+    "source": "notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md"
+  },
+  {
+    "links": [
       "2026-03-11-tmux-agent-orchestration"
     ],
     "source": "notes/references/briefs/2026-03-16-agent-orchestration-research-brief.md"

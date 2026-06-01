@@ -1,6 +1,6 @@
 # Broken Links Audit — 2026-05-21
 
-Found **367** broken wikilinks:
+Found **369** broken wikilinks:
 
 
 ### AGENTS.md
@@ -302,6 +302,10 @@ Found **367** broken wikilinks:
 ### notes/references/2026-03-10-childs-play-sam-kriss.md
 - [[2026-03-10-competitive-zero-human-companies]]
 - [[2026-03-11-paperclip-zero-human-orchestration]]
+
+### notes/references/2026-04-12-rich-hickey-simple-made-easy-talk.md
+- [[2026-04-08-out-of-the-tar-pit-paper]]
+- [[2026-04-15-worse-is-better-essay]]
 
 ### notes/references/briefs/2026-03-16-ai-agents-research-brief.md
 - [[2026-03-11-anthropic-people-products-role]]

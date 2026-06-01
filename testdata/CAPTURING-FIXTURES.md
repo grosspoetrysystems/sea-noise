@@ -75,11 +75,11 @@ Top-level fixture composition:
 | `notes/assertions/` | 5 | all (small directory) |
 | `notes/ideas/` | 3 | sort, head 3 |
 | `notes/entities/` | 3 | sort, head 3 |
-| `notes/references/` | 2 | sort, head 2 |
+| `notes/references/` | 3 | sort, head 2 + 1 deliberate add (`2026-04-12-rich-hickey-simple-made-easy-talk.md`, the transcript-bearing fixture for T-PROVE on `summarize-transcripts`; see `.tempor/exec/P1-W2-kickoff.md`) |
 | `notes/references/briefs/` | 2 | sort, head 2 |
 | `notes/todos/` | 2 | sort, head 2 |
 | `export/` | 1 | sort, head 1 |
-| **total** | **34** | |
+| **total** | **35** | |
 
 ## Live-vault drift
 
