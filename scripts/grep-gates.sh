@@ -54,7 +54,7 @@ if [ "${count}" -ne 0 ]; then
 fi
 
 # Gate 5: no Kong or koanf imports (scaffold posture is hand-rolled flag
-# + custom TOML loader; see KNOWN-DELTA.md "Scaffold simplifications").
+# + custom TOML loader; see .tempor/KNOWN-DELTA.md "Scaffold simplifications").
 # Checks both Go source and go.mod.
 count=$(count_hits '"[^"]*/(kong|koanf)(/|")' '(_test\.go|/tests?/)' || true)
 if [ "${count}" -ne 0 ]; then
@@ -71,7 +71,7 @@ fi
 
 if [ "${fail}" -ne 0 ]; then
   echo "" >&2
-  echo "One or more grep gates failed. See ARCHITECTURE.md §6 and §7 and KNOWN-DELTA.md." >&2
+  echo "One or more grep gates failed. See ARCHITECTURE.md §6 and §7 and .tempor/KNOWN-DELTA.md." >&2
   exit 1
 fi
 
