@@ -57,6 +57,79 @@ type AutoResult struct {
 	Failed     []string // topic names where EnrichTopic returned an error
 }
 
+// TopicCandidate is one post-threshold, post-dedup, post-cap topic the
+// live workflow would enrich, paired with the exact skill input
+// EnrichTopic would assemble for the generate-research-brief skill.
+//
+// Produced by WalkTopicCandidates; consumed by parity-discovery to
+// render Go-side prompts for envelope capture without invoking the
+// LLM.
+type TopicCandidate struct {
+	Topic      string
+	SkillInput GenerateResearchBriefInput
+}
+
+// WalkTopicCandidates reads _meta/topic-frequencies.md, applies the
+// same threshold + dedup + cap the live workflow does, invokes the
+// supplied Crawler per qualifying topic to assemble the web-research
+// section, and returns one TopicCandidate per survivor in
+// iteration order. Pure read; never invokes the LLM.
+//
+// crawler may be nil (treated as NoopCrawler — no web context).
+func WalkTopicCandidates(ctx context.Context, in AutoInput, crawler Crawler) ([]TopicCandidate, error) {
+	threshold := in.Threshold
+	if threshold <= 0 {
+		threshold = DefaultAutoThreshold
+	}
+	cap := in.MaxPerRun
+	if cap <= 0 {
+		cap = DefaultMaxAutoPerRun
+	}
+	if crawler == nil {
+		crawler = NoopCrawler{}
+	}
+
+	topics, err := ReadTopicFrequencies(in.VaultRoot)
+	if err != nil {
+		return nil, err
+	}
+	enriched, err := ReadEnrichedTopics(in.VaultRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]TopicCandidate, 0)
+	for _, t := range topics {
+		if enriched[t.Topic] {
+			continue
+		}
+		if t.Count < threshold {
+			continue
+		}
+		if len(out) >= cap {
+			break
+		}
+		notes, err := collectNotesForTopic(in.VaultRoot, t.Topic)
+		if err != nil {
+			return nil, err
+		}
+		if len(notes) == 0 {
+			continue
+		}
+		_, webSection := assembleWebSection(ctx, crawler, notes)
+		out = append(out, TopicCandidate{
+			Topic: t.Topic,
+			SkillInput: GenerateResearchBriefInput{
+				Topic:        t.Topic,
+				NoteCount:    len(notes),
+				NotesSummary: formatNotesSummary(notes),
+				WebSection:   webSection,
+			},
+		})
+	}
+	return out, nil
+}
+
 // EnrichTopicsAuto reads `_meta/topic-frequencies.md`, filters topics
 // to those at or above the threshold and not already in the
 // enrichment log, caps the survivors at MaxPerRun, and runs

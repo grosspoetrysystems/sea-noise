@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"sea-noise/internal/ai/skill"
+	"sea-noise/internal/crawl"
+	"sea-noise/internal/enrichtopics"
 	"sea-noise/internal/entityprofile"
 	"sea-noise/internal/summarizer"
 )
@@ -30,12 +34,13 @@ import (
 // infrastructure only; never wired into a daemon code path.
 func runParityDiscover(args []string) error {
 	fs := flag.NewFlagSet("parity-discover", flag.ExitOnError)
-	skillName := fs.String("skill", "", "workflow alias to render: summarize-content | profile-entities")
+	skillName := fs.String("skill", "", "workflow alias to render: summarize-content | profile-entities | enrich-topics")
 	vaultRoot := fs.String("vault", "", "absolute path to the vault root to walk")
 	skillsDir := fs.String("skills-dir", "", "directory containing inference skill files (defaults to .agents/shared/skills/inference relative to repo root or binary)")
 	mode := fs.String("mode", "", "discovery mode for multi-phase workflows: filter | profile (profile-entities only)")
 	keepNamesArg := fs.String("keep-names", "", "comma-separated list of entity names to render profile prompts for (--mode profile only)")
 	keepTypesArg := fs.String("keep-types", "", "comma-separated list of name:type pairs assigning entity-type to each keep-name (--mode profile only)")
+	crawlStubsDir := fs.String("crawl-stubs-dir", "", "directory of *.md crawl-stub blobs for enrich-topics StubCrawler (defaults to testdata/crawl-stubs/enrich-topics relative to repo root or binary)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -78,8 +83,18 @@ func runParityDiscover(args []string) error {
 			return err
 		}
 		return discoverProfileEntities(filterSkill, profileSkill, *vaultRoot, *mode, keepNames, keepTypes)
+	case "enrich-topics":
+		briefSkill, ok := skills["generate-research-brief"]
+		if !ok {
+			return fmt.Errorf("skill %q not found in %s", "generate-research-brief", skillsPath)
+		}
+		stubsDir := *crawlStubsDir
+		if stubsDir == "" {
+			stubsDir = guessCrawlStubsDir()
+		}
+		return discoverEnrichTopics(briefSkill, *vaultRoot, stubsDir)
 	default:
-		return fmt.Errorf("parity-discover does not yet support workflow %q (only summarize-content, profile-entities)", *skillName)
+		return fmt.Errorf("parity-discover does not yet support workflow %q (only summarize-content, profile-entities, enrich-topics)", *skillName)
 	}
 }
 
@@ -161,6 +176,58 @@ func discoverProfileEntities(filterSkill, profileSkill *skill.Skill, vaultRoot, 
 	default:
 		return fmt.Errorf("unknown --mode %q (want filter|profile)", mode)
 	}
+}
+
+// guessCrawlStubsDir resolves the default crawl-stubs directory the
+// same way guessSkillsDir does for skills — walks up from the binary's
+// location (and CWD) until testdata/crawl-stubs/enrich-topics shows up.
+// Returns the fallback relative path when not found; the StubCrawler
+// treats a missing dir as an empty stub set.
+func guessCrawlStubsDir() string {
+	candidates := []string{}
+	if exe, err := os.Executable(); err == nil {
+		candidates = append(candidates, exe)
+	}
+	if wd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, wd)
+	}
+	for _, c := range candidates {
+		for d := c; d != "/" && d != "."; d = filepath.Dir(d) {
+			candidate := filepath.Join(d, "testdata", "crawl-stubs", "enrich-topics")
+			if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+				return candidate
+			}
+		}
+	}
+	return "testdata/crawl-stubs/enrich-topics"
+}
+
+// discoverEnrichTopics renders the enrich-topics workflow's Go-side
+// prompts for parity-discovery. Single-phase: one
+// generate-research-brief LLM call per qualifying topic.
+//
+// Uses a StubCrawler reading from stubsDir so the rendered prompt's
+// WebSection is deterministic across runs (per .tempor/exec/P1-W3-kickoff.md
+// decision 4: parity does NOT require the prototype's crawl content
+// to match the Go test's stub — pair envelopes by topic name).
+func discoverEnrichTopics(briefSkill *skill.Skill, vaultRoot, stubsDir string) error {
+	stub, err := crawl.NewStubCrawler(stubsDir)
+	if err != nil {
+		return fmt.Errorf("load stub crawler from %s: %w", stubsDir, err)
+	}
+	candidates, err := enrichtopics.WalkTopicCandidates(context.Background(), enrichtopics.AutoInput{VaultRoot: vaultRoot}, stub)
+	if err != nil {
+		return err
+	}
+	out := make([]discoveredPrompt, 0, len(candidates))
+	for _, c := range candidates {
+		prompt, err := briefSkill.Render(c.SkillInput)
+		if err != nil {
+			return fmt.Errorf("render brief skill for %s: %w", c.Topic, err)
+		}
+		out = append(out, discoveredPrompt{Kind: "enrich", Rel: c.Topic, Prompt: prompt})
+	}
+	return emitDiscovered(out)
 }
 
 func emitDiscovered(out []discoveredPrompt) error {

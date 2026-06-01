@@ -90,10 +90,12 @@ type matchedNote struct {
 	Excerpt string // first ExcerptChars characters of body
 }
 
-// generateResearchBriefInput is the data the generate-research-brief
+// GenerateResearchBriefInput is the data the generate-research-brief
 // skill template expects. Field names map to the {{.Topic}}, {{.NotesSummary}}
-// etc. references in the skill body.
-type generateResearchBriefInput struct {
+// etc. references in the skill body. Exported so parity-discovery callers
+// can render the same prompt the live workflow would assemble without
+// invoking the LLM.
+type GenerateResearchBriefInput struct {
 	Topic        string
 	NoteCount    int
 	NotesSummary string
@@ -124,7 +126,7 @@ func EnrichTopic(ctx context.Context, exec *skill.Executor, crawler Crawler, in 
 
 	crawled, webSection := assembleWebSection(ctx, crawler, notes)
 
-	body, err := exec.Execute(ctx, "generate-research-brief", generateResearchBriefInput{
+	body, err := exec.Execute(ctx, "generate-research-brief", GenerateResearchBriefInput{
 		Topic:        in.Topic,
 		NoteCount:    len(notes),
 		NotesSummary: formatNotesSummary(notes),

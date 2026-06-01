@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,6 +148,140 @@ func TestEnrichTopicsAuto_RespectsMaxPerRun(t *testing.T) {
 	}
 	if len(res.Enriched) != 2 {
 		t.Errorf("Enriched = %d, want 2 (capped at MaxPerRun)", len(res.Enriched))
+	}
+}
+
+// --- WalkTopicCandidates (parity-discovery surface) ---
+
+func TestWalkTopicCandidates_Happy(t *testing.T) {
+	vault := t.TempDir()
+	writeFile(t, vault, "_meta/topic-frequencies.md", `| tag | count | last_seen | trend |
+|-----|-------|-----------|-------|
+| ai | 5 | 2026-05-22 | rising |
+`)
+	writeFile(t, vault, "notes/references/ai-paper.md", `---
+title: AI Paper
+tags:
+  - tech/ai
+---
+
+A note tagged with ai.
+`)
+	writeFile(t, vault, "notes/references/another-ai.md", `---
+title: Another AI Note
+tags:
+  - ai
+---
+
+Body.
+`)
+
+	got, err := enrichtopics.WalkTopicCandidates(
+		context.Background(),
+		enrichtopics.AutoInput{VaultRoot: vault, Threshold: 3},
+		enrichtopics.NoopCrawler{},
+	)
+	if err != nil {
+		t.Fatalf("WalkTopicCandidates: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len = %d, want 1", len(got))
+	}
+	if got[0].Topic != "ai" {
+		t.Errorf("Topic = %q, want %q", got[0].Topic, "ai")
+	}
+	if got[0].SkillInput.NoteCount != 2 {
+		t.Errorf("NoteCount = %d, want 2", got[0].SkillInput.NoteCount)
+	}
+	if got[0].SkillInput.WebSection != "" {
+		t.Errorf("WebSection = %q, want empty (NoopCrawler + no source URLs)", got[0].SkillInput.WebSection)
+	}
+}
+
+func TestWalkTopicCandidates_RespectsThreshold(t *testing.T) {
+	vault := t.TempDir()
+	writeFile(t, vault, "_meta/topic-frequencies.md", `| tag | count | last_seen | trend |
+|-----|-------|-----------|-------|
+| sparse | 1 | 2026-05-20 |  |
+`)
+	writeFile(t, vault, "notes/sparse.md", "---\ntitle: x\ntags:\n  - sparse\n---\nbody\n")
+
+	got, err := enrichtopics.WalkTopicCandidates(
+		context.Background(),
+		enrichtopics.AutoInput{VaultRoot: vault, Threshold: 3},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("WalkTopicCandidates: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("len = %d, want 0 (below threshold)", len(got))
+	}
+}
+
+func TestWalkTopicCandidates_SkipsAlreadyEnriched(t *testing.T) {
+	vault := t.TempDir()
+	writeFile(t, vault, "_meta/topic-frequencies.md", `| tag | count | last_seen | trend |
+|-----|-------|-----------|-------|
+| ai | 5 | 2026-05-22 | rising |
+`)
+	writeFile(t, vault, "_meta/enrichment-log.md", `# Enrichment Log
+
+- ai — 2026-05-20 — notes/references/briefs/2026-05-20-ai-research-brief.md
+`)
+	writeFile(t, vault, "notes/ai.md", "---\ntitle: x\ntags:\n  - ai\n---\nbody\n")
+
+	got, err := enrichtopics.WalkTopicCandidates(
+		context.Background(),
+		enrichtopics.AutoInput{VaultRoot: vault, Threshold: 3},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("WalkTopicCandidates: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("len = %d, want 0 (already in enrichment-log)", len(got))
+	}
+}
+
+func TestWalkTopicCandidates_UsesStubCrawler(t *testing.T) {
+	vault := t.TempDir()
+	writeFile(t, vault, "_meta/topic-frequencies.md", `| tag | count | last_seen | trend |
+|-----|-------|-----------|-------|
+| ai | 5 | 2026-05-22 | rising |
+`)
+	writeFile(t, vault, "notes/ai.md", `---
+title: AI Note
+tags:
+  - ai
+source: https://example.com/ai-article
+---
+
+Body.
+`)
+
+	stubsDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(stubsDir, "ai.md"), []byte("# Stubbed AI Web Content\n\nLorem ipsum about AI.\n"), 0o644); err != nil {
+		t.Fatalf("write stub: %v", err)
+	}
+	stub, err := crawl.NewStubCrawler(stubsDir)
+	if err != nil {
+		t.Fatalf("NewStubCrawler: %v", err)
+	}
+
+	got, err := enrichtopics.WalkTopicCandidates(
+		context.Background(),
+		enrichtopics.AutoInput{VaultRoot: vault, Threshold: 3},
+		stub,
+	)
+	if err != nil {
+		t.Fatalf("WalkTopicCandidates: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len = %d, want 1", len(got))
+	}
+	if !strings.Contains(got[0].SkillInput.WebSection, "Stubbed AI Web Content") {
+		t.Errorf("WebSection missing stub content: %q", got[0].SkillInput.WebSection)
 	}
 }
 
