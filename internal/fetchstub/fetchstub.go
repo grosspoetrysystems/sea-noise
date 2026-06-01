@@ -15,7 +15,7 @@
 // The prototype's "platform_apis" pre-fetch path and the post-pass
 // crawl upgrade (Substack-style content widening) are intentionally
 // out of scope — they depend on a prototype-local module that is not
-// in references/. KNOWN-DELTA.md captures the gap.
+// in references/. .tempor/KNOWN-DELTA.md captures the gap.
 package fetchstub
 
 import (

@@ -13,7 +13,7 @@ This document describes the procedure for capturing parity golden files from the
 ## What the golden files are NOT
 
 - They are NOT a comprehensive snapshot of every prototype behavior. They cover the markdown-engine + vault-abstraction surface in P1-W3 scope (T03). When later waves port additional prototype scripts (T05's pipeline commands, etc.), this capture script grows to cover their surfaces too.
-- They are NOT machine-translated regression tests. They are the prototype's actual outputs on real notes. A failing parity test means the Go port produces different output for the same input, which is a real bug (or a deliberate documented delta in `KNOWN-DELTA.md`).
+- They are NOT machine-translated regression tests. They are the prototype's actual outputs on real notes. A failing parity test means the Go port produces different output for the same input, which is a real bug (or a deliberate documented delta in `.tempor/KNOWN-DELTA.md`).
 - They are NOT meant to be hand-edited. Edit the prototype's source or the fixture vault, then re-run the capture script.
 
 ## Capture environment

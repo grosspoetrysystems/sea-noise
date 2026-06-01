@@ -19,8 +19,8 @@ import (
 // disk is a directory of these — one JSON file per envelope, named by
 // PromptHash to make collisions self-evident in the filesystem.
 //
-// SkillSHA pins the skill file's content at capture time per PARITY.md
-// decision 4. Tests compare the recorded SkillSHA against the current
+// SkillSHA pins the skill file's content at capture time per
+// .tempor/PARITY.md decision 4. Tests compare the recorded SkillSHA against the current
 // skill file's SHA to surface drift distinct from port regressions.
 type Envelope struct {
 	SkillName  string `json:"skill_name"`

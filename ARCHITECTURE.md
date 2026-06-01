@@ -132,7 +132,7 @@ Properties:
 - Embeddings are stored as a derived cache in SQLite (`embeddings` table — schema deferred to T10).
 - Exact cosine is computed in Go over `[]float32`. No ANN index in the initial ship.
 - The first provider may be remote (e.g., an HTTP embedding API). Local embeddings are not a ship blocker. ONNX/dylib-heavy packaging is explicitly excluded.
-- The semantic layer is included in the shipped runtime only if it materially improves retrieval quality on conceptual/paraphrase/related-note queries against the golden fixture vault, judged by inspection of expected-output diffs. If it does not, the runtime ships without it. The include/exclude decision is recorded in `KNOWN-DELTA.md` as text — never as metric thresholds.
+- The semantic layer is included in the shipped runtime only if it materially improves retrieval quality on conceptual/paraphrase/related-note queries against the golden fixture vault, judged by inspection of expected-output diffs. If it does not, the runtime ships without it. The include/exclude decision is made by inspection — never by metric thresholds.
 
 The Embedder interface is defined in Phase 2 (T04). Concrete implementation is Phase 4 (T10).
 

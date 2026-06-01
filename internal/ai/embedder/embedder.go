@@ -36,7 +36,7 @@ var (
 //   - All returned vectors have length Dimension().
 //   - ProviderID() is a stable string identifying the provider+model
 //     combination (e.g., "stub/zero-768" or some other implementation-
-//     specific token). Used as a cache key and in KNOWN-DELTA.md
+//     specific token). Used as a cache key and in .tempor/KNOWN-DELTA.md
 //     entries describing the semantic-layer decision. Concrete model
 //     identifiers are config-only — they never appear as literals in
 //     this package.

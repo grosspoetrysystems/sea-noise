@@ -44,7 +44,7 @@ pgrep -f 'sea-noise serve' >/dev/null || (sea-noise serve >> ~/.sea-noise/daemon
 tmux new-session -d -s sea-noise 'sea-noise serve'
 ```
 
-There is intentionally no `sea-noise schedule install` subcommand and no auto-generated launchd plist. Registering with launchd would reintroduce the exact TCC and approval churn this design escapes. See `KNOWN-DELTA.md` for the full rationale.
+There is intentionally no `sea-noise schedule install` subcommand and no auto-generated launchd plist. Registering with launchd would reintroduce the exact TCC and approval churn this design escapes.
 
 ## Internal scheduler
 

@@ -55,7 +55,7 @@ Vault path is resolved from `MIND_PALACE_VAULT` env var or `vault.path` in `sea-
 
 ## CLI dispatch
 
-`cmd/sea-noise/main.go` uses a hand-rolled `flag` + switch dispatcher (no Kong, no cobra). Subcommands register as `case` arms calling local `runX(args []string) error` functions. The custom TOML loader in `internal/config/` (no koanf) handles config parsing. This scaffold posture is "minimize first, layer up after proof" — restoration to third-party libraries is a future track only if proof demands it. See `KNOWN-DELTA.md` for the rationale.
+`cmd/sea-noise/main.go` uses a hand-rolled `flag` + switch dispatcher (no Kong, no cobra). Subcommands register as `case` arms calling local `runX(args []string) error` functions. The custom TOML loader in `internal/config/` (no koanf) handles config parsing. This scaffold posture is "minimize first, layer up after proof" — restoration to third-party libraries is a future track only if proof demands it.
 
 ## Commit discipline
 

@@ -17,8 +17,8 @@
 // on Darwin and inotify on Linux and only wakes when something
 // actually changes.
 //
-// fsnotify quirks worth knowing (see KNOWN-DELTA.md for the long
-// form):
+// fsnotify quirks worth knowing (see .tempor/KNOWN-DELTA.md for the
+// long form):
 //
 //   - Atomic-rename editors (vim, Obsidian's mobile sync) fire
 //     delete + create rather than write. We treat create-of-existing

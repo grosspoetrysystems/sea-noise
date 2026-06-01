@@ -26,7 +26,7 @@ func DefaultSocketPath() (string, error) {
 }
 
 // ErrSocketPathTooLong is returned when a configured socket path
-// exceeds the platform's sun_path budget. See KNOWN-DELTA.md.
+// exceeds the platform's sun_path budget. See .tempor/KNOWN-DELTA.md.
 var ErrSocketPathTooLong = errors.New("ipc: socket path exceeds sun_path limit")
 
 // ErrSocketInUse is returned by Server.Start when the configured

@@ -1,7 +1,7 @@
 package parity
 
 // Equivalence configures what counts as "the same" when Diff compares
-// two vault trees. PARITY.md's contract for LLM-touching workflows is
+// two vault trees. .tempor/PARITY.md's contract for LLM-touching workflows is
 // post-state / contract equivalence under a defined relation:
 // structural mutations match exactly; LLM-authored prose does not need
 // to.
@@ -36,7 +36,7 @@ type Equivalence struct {
 	IgnorePaths []string
 }
 
-// DefaultEquivalence returns the relation matching PARITY.md's
+// DefaultEquivalence returns the relation matching .tempor/PARITY.md's
 // contract for LLM-touching workflows.
 func DefaultEquivalence() Equivalence {
 	return Equivalence{

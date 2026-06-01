@@ -21,7 +21,7 @@ type Stub struct {
 }
 
 // NewStub returns a Stub with the given dimension. ID format mirrors
-// "stub/zero-<dim>" so it's recognizable in logs and KNOWN-DELTA.md.
+// "stub/zero-<dim>" so it's recognizable in logs and .tempor/KNOWN-DELTA.md.
 func NewStub(dim int) *Stub {
 	return &Stub{dim: dim, id: fmt.Sprintf("stub/zero-%d", dim)}
 }
