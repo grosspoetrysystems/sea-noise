@@ -124,6 +124,30 @@ Re-run when the fixture vault's entity counts change, when `references/scripts/p
 
 The Go parity test pins `Today: 2026-06-01` to match the captured snapshot's profile filenames (`notes/entities/2026-06-01-profile-<slug>.md`). Re-capturing on a different date requires re-pinning the test's `Today` constant in lockstep.
 
+### enrich-topics (single-phase, with web-crawl stub seam)
+
+`enrich-topics` fires one `generate-research-brief` LLM call per qualifying topic. `testdata/scripts/capture-enrich-topics.py` follows the W2 single-phase shape:
+
+1. **Discover Go prompts.** `sea-noise parity-discover --skill enrich-topics --vault testdata/fixture-vault` — emits one `{kind: "enrich", rel: <topic>, prompt}` per topic above threshold (default 3). The Go side uses a `StubCrawler` that reads from `testdata/crawl-stubs/enrich-topics/` for deterministic web-section content; an empty/missing dir is treated as a no-op crawler (suitable when matched notes have no `source: http...` frontmatter).
+2. **Run the prototype.** Same PATH-shim setup as W2. The prototype hits live Cloudflare if `CF_ACCOUNT_ID` + `CF_API_TOKEN` are set, or its built-in NoopCrawler fallback otherwise. **We do NOT force the prototype's crawl content to match the Go test's stub** — per .tempor/PARITY.md decision rationale for enrich-topics (passive-enrichment workflow), parity is feature-equivalence (file path, frontmatter shape, vault placement) not LLM-input fidelity.
+3. **Pair by topic name.** The capture script extracts the topic from each prototype prompt via regex (`topic '<name>' has reached critical mass`) and pairs 1:1 with the Go discover output (also keyed by topic).
+4. **Re-key + emit.** Each prototype envelope's `response` re-keyed under the Go prompt hash and written to `testdata/envelopes/enrich-topics/<hash>.json` with `skill_name = "generate-research-brief"` and the current skill file SHA.
+5. **Snapshot post-state.** Save to `testdata/expected/enrich-topics/post-state/`.
+
+Run with:
+
+```sh
+.venv/bin/python testdata/scripts/capture-enrich-topics.py
+```
+
+**`topic-frequencies.md` format requirement.** The prototype's `read_topic_frequencies` requires the 5-column shape `| topic | first_seen | last_seen | count | trend |`. The Go side accepts either 4-col or 5-col, but the fixture must use the 5-col form for the capture to work. The fixture at `testdata/fixture-vault/_meta/topic-frequencies.md` is pinned to that format.
+
+**Required venv state:** `python-frontmatter` + `requests` (the prototype imports `requests` at module load even when the crawler will short-circuit to no-op). Run `.venv/bin/pip install -r requirements.txt` to install both.
+
+Re-run when the fixture vault changes, when `references/scripts/enrich-topics.py` changes, or when the `generate-research-brief` skill template changes. Burns 1 `claude -p` call per topic above threshold (currently 1 in the fixture — `ai-agents`).
+
+The Go parity test pins `Today: 2026-06-02` to match the captured brief filename (`notes/references/briefs/2026-06-02-ai-agents-research-brief.md`). Re-pin in lockstep on re-capture.
+
 ## Live-vault drift
 
 The live iCloud vault evolves; the fixture does not. When the rewrite ships and parity is demonstrated against this fixture, the fixture remains valid. Future expansions (more case-types, edge cases discovered later) should add to the fixture and re-run capture — not replace the existing notes.
