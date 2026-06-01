@@ -361,6 +361,63 @@ func TestServer_StalePathRemovedOnStart(t *testing.T) {
 	}
 }
 
+// TestServer_RefusesRebindOnLiveSocket asserts the DAEMON.md contract
+// that a second Start against the same path refuses while the first
+// daemon is still serving (no --force flag). The first daemon must keep
+// running unchanged.
+func TestServer_RefusesRebindOnLiveSocket(t *testing.T) {
+	h := &fakeHandler{skillOut: ipc.SkillRunResult{Output: "first"}}
+	path, stop := startServer(t, h)
+	defer stop()
+
+	second := ipc.New(path, &fakeHandler{})
+	err := second.Start(context.Background())
+	if err == nil {
+		_ = second.Stop()
+		t.Fatalf("second Start should refuse on live socket")
+	}
+	if !errors.Is(err, ipc.ErrSocketInUse) {
+		t.Fatalf("err: got %v, want wrap of ipc.ErrSocketInUse", err)
+	}
+	// First daemon must still answer.
+	resp := callOnce(t, path, ipc.VerbSkillRun, "after-refusal", ipc.SkillRunParams{Name: "x"})
+	if resp.Error != nil {
+		t.Fatalf("first daemon should still serve after refused rebind: %+v", resp.Error)
+	}
+	var got ipc.SkillRunResult
+	if jerr := json.Unmarshal(resp.Result, &got); jerr != nil {
+		t.Fatalf("unmarshal: %v", jerr)
+	}
+	if got.Output != "first" {
+		t.Fatalf("first daemon's response replaced; got %q want first", got.Output)
+	}
+}
+
+// TestServer_RebindsAfterStop asserts the idempotent-reboot path:
+// after a clean Stop removes the socket, a fresh Start at the same
+// path succeeds.
+func TestServer_RebindsAfterStop(t *testing.T) {
+	path := shortSocketPath(t)
+	srv1 := ipc.New(path, &fakeHandler{})
+	if err := srv1.Start(context.Background()); err != nil {
+		t.Fatalf("first start: %v", err)
+	}
+	if err := srv1.Stop(); err != nil {
+		t.Fatalf("stop: %v", err)
+	}
+
+	srv2 := ipc.New(path, &fakeHandler{skillOut: ipc.SkillRunResult{Output: "second"}})
+	if err := srv2.Start(context.Background()); err != nil {
+		t.Fatalf("rebind after stop: %v", err)
+	}
+	defer srv2.Stop()
+
+	resp := callOnce(t, path, ipc.VerbSkillRun, "r", ipc.SkillRunParams{Name: "x"})
+	if resp.Error != nil {
+		t.Fatalf("rebound daemon: %+v", resp.Error)
+	}
+}
+
 func TestValidateSocketPath(t *testing.T) {
 	if err := ipc.ValidateSocketPath("/tmp/short.sock"); err != nil {
 		t.Fatalf("short path rejected: %v", err)

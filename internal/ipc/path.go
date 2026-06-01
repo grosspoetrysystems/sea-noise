@@ -29,6 +29,11 @@ func DefaultSocketPath() (string, error) {
 // exceeds the platform's sun_path budget. See KNOWN-DELTA.md.
 var ErrSocketPathTooLong = errors.New("ipc: socket path exceeds sun_path limit")
 
+// ErrSocketInUse is returned by Server.Start when the configured
+// socket path is already serving another daemon. The contract in
+// DAEMON.md is "refuse to start, exit non-zero" — there is no --force.
+var ErrSocketInUse = errors.New("ipc: socket already in use by another daemon")
+
 // maxSunPath is the conservative limit covering both Darwin (104)
 // and Linux (108). The final byte is reserved for the null
 // terminator on most platforms.

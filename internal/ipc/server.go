@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 // Server hosts a Unix-socket JSON-RPC listener and dispatches
@@ -38,9 +39,11 @@ func (s *Server) SocketPath() string { return s.socketPath }
 // the background. It returns once the listener is bound; the accept
 // loop runs until Stop is called or ctx is cancelled.
 //
-// Start removes any stale socket file at SocketPath before binding —
-// callers expecting cooperation with another listener should pick a
-// different path.
+// If the socket path is already occupied, Start probes for a live
+// listener: if another daemon is answering, Start returns an error
+// (no --force flag). If the path is stale (file exists, nothing
+// listening), Start cleans it up and rebinds — this is the supported
+// idempotent-reboot path after a crash.
 func (s *Server) Start(ctx context.Context) error {
 	s.mu.Lock()
 	if s.started {
@@ -52,9 +55,14 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := os.MkdirAll(filepath.Dir(s.socketPath), 0o700); err != nil {
 		return fmt.Errorf("ipc: mkdir socket dir: %w", err)
 	}
-	// Remove a stale socket file if present. Ignore ENOENT.
-	if err := os.Remove(s.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("ipc: remove stale socket: %w", err)
+
+	if _, statErr := os.Stat(s.socketPath); statErr == nil {
+		if isLiveSocket(s.socketPath) {
+			return fmt.Errorf("%w: %s (stop the running process first)", ErrSocketInUse, s.socketPath)
+		}
+		if err := os.Remove(s.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("ipc: remove stale socket: %w", err)
+		}
 	}
 
 	l, err := net.Listen("unix", s.socketPath)
@@ -134,6 +142,19 @@ func (s *Server) acceptLoop(ctx context.Context) {
 
 func isClosedErr(err error) bool {
 	return errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF)
+}
+
+// isLiveSocket returns true if something is currently accepting
+// connections at path. A short Dial succeeds only when a listener
+// answers; ECONNREFUSED, "not a socket", and ENOENT all mean the path
+// is safe to clobber.
+func isLiveSocket(path string) bool {
+	conn, err := net.DialTimeout("unix", path, 200*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
 }
 
 // serveConn reads newline-delimited JSON requests from conn and
