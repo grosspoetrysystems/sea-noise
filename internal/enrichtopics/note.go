@@ -50,9 +50,11 @@ type NoteResult struct {
 	Crawled  int    // number of crawled records folded into the prompt
 }
 
-// enrichSingleNoteInput is the data the enrich-single-note skill
-// template expects.
-type enrichSingleNoteInput struct {
+// EnrichSingleNoteInput is the data the enrich-single-note skill
+// template expects. Exported so parity-discovery callers can render
+// the same prompt the live workflow would assemble without invoking
+// the LLM.
+type EnrichSingleNoteInput struct {
 	Title      string
 	Tags       string
 	Source     string
@@ -60,40 +62,49 @@ type enrichSingleNoteInput struct {
 	WebSection string
 }
 
-// EnrichNote loads a single note, optionally crawls its source URL,
-// generates the enrichment via the enrich-single-note skill, and
-// appends the result to the note's body. The note's frontmatter
-// gains an `enriched: YYYY-MM-DD` key.
-func EnrichNote(ctx context.Context, exec *skill.Executor, crawler Crawler, in NoteInput) (NoteResult, error) {
-	today := in.Today
-	if today.IsZero() {
-		today = time.Now()
-	}
-	abs := in.NotePath
+// NoteCandidate is one note that would be enriched, paired with the
+// exact skill input EnrichNote would assemble. Produced by
+// BuildEnrichNoteInput; consumed by parity-discovery.
+type NoteCandidate struct {
+	Rel        string                // vault-relative path
+	Crawled    int                   // number of crawled records folded into the prompt
+	SkillInput EnrichSingleNoteInput // exact input EnrichNote would pass to Execute
+}
+
+// BuildEnrichNoteInput performs all the pre-LLM work EnrichNote does
+// — read the note, parse frontmatter, check already-enriched, build
+// the prompt body (with Research Context stripped and content
+// truncated), build the web section via the supplied Crawler, and
+// assemble the EnrichSingleNoteInput. Pure read; never invokes the
+// LLM and never writes back.
+//
+// Used by EnrichNote internally (single-sources the pre-LLM logic)
+// and by parity-discovery to render Go-side prompts for envelope
+// capture. crawler may be nil (treated as NoopCrawler).
+func BuildEnrichNoteInput(ctx context.Context, vaultRoot, notePath string, crawler Crawler) (NoteCandidate, error) {
+	abs := notePath
 	if !filepath.IsAbs(abs) {
-		abs = filepath.Join(in.VaultRoot, in.NotePath)
+		abs = filepath.Join(vaultRoot, notePath)
 	}
-	rel, _ := filepath.Rel(in.VaultRoot, abs)
+	rel, _ := filepath.Rel(vaultRoot, abs)
 
 	raw, err := os.ReadFile(abs)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return NoteResult{}, fmt.Errorf("%w: %s", ErrNoteNotFound, in.NotePath)
+			return NoteCandidate{}, fmt.Errorf("%w: %s", ErrNoteNotFound, notePath)
 		}
-		return NoteResult{}, fmt.Errorf("enrichtopics: read %s: %w", abs, err)
+		return NoteCandidate{}, fmt.Errorf("enrichtopics: read %s: %w", abs, err)
 	}
 	content := string(raw)
 	fm, err := markdown.ParseFrontmatterYAML(content)
 	if err != nil {
-		return NoteResult{}, fmt.Errorf("enrichtopics: parse frontmatter %s: %w", abs, err)
+		return NoteCandidate{}, fmt.Errorf("enrichtopics: parse frontmatter %s: %w", abs, err)
 	}
 	body := fm.Body
 	if strings.Contains(body, "## Research Context") || strings.Contains(body, "## Follow-up Questions") {
-		return NoteResult{}, fmt.Errorf("%w: %s", ErrAlreadyEnriched, rel)
+		return NoteCandidate{}, fmt.Errorf("%w: %s", ErrAlreadyEnriched, rel)
 	}
 
-	// Strip any pre-existing Research Context before sending to the
-	// model so it doesn't fixate on it. Matches enrich_single_note.
 	promptBody := body
 	if i := strings.Index(promptBody, "## Research Context"); i > 0 {
 		promptBody = strings.TrimRight(promptBody[:i], " \t\n")
@@ -127,20 +138,53 @@ func EnrichNote(ctx context.Context, exec *skill.Executor, crawler Crawler, in N
 		}
 	}
 
-	enrichment, err := exec.Execute(ctx, "enrich-single-note", enrichSingleNoteInput{
-		Title:      title,
-		Tags:       tags,
-		Source:     source,
-		Content:    promptBody,
-		WebSection: webSection,
-	})
+	return NoteCandidate{
+		Rel:     rel,
+		Crawled: crawled,
+		SkillInput: EnrichSingleNoteInput{
+			Title:      title,
+			Tags:       tags,
+			Source:     source,
+			Content:    promptBody,
+			WebSection: webSection,
+		},
+	}, nil
+}
+
+// EnrichNote loads a single note, optionally crawls its source URL,
+// generates the enrichment via the enrich-single-note skill, and
+// appends the result to the note's body. The note's frontmatter
+// gains an `enriched: YYYY-MM-DD` key.
+func EnrichNote(ctx context.Context, exec *skill.Executor, crawler Crawler, in NoteInput) (NoteResult, error) {
+	today := in.Today
+	if today.IsZero() {
+		today = time.Now()
+	}
+
+	cand, err := BuildEnrichNoteInput(ctx, in.VaultRoot, in.NotePath, crawler)
+	if err != nil {
+		return NoteResult{}, err
+	}
+
+	// Re-read the raw file for the final write-back. BuildEnrichNoteInput
+	// did its own read but only kept the parsed pieces it needs; we need
+	// the full bytes to splice the enrichment onto the end and update
+	// the frontmatter.
+	abs := in.NotePath
+	if !filepath.IsAbs(abs) {
+		abs = filepath.Join(in.VaultRoot, in.NotePath)
+	}
+	raw, err := os.ReadFile(abs)
+	if err != nil {
+		return NoteResult{}, fmt.Errorf("enrichtopics: re-read %s: %w", abs, err)
+	}
+	content := string(raw)
+
+	enrichment, err := exec.Execute(ctx, "enrich-single-note", cand.SkillInput)
 	if err != nil {
 		return NoteResult{}, fmt.Errorf("enrichtopics: enrich-single-note: %w", err)
 	}
 
-	// Append enrichment after the body; add `enriched: <date>` to
-	// frontmatter via the same string-surgery pattern other workflow
-	// packages use.
 	withSection := strings.TrimRight(content, " \t\n\v\f\r") + "\n\n" + strings.TrimSpace(enrichment) + "\n"
 	withDated, err := appendEnrichedKey(withSection, today.Format("2006-01-02"))
 	if err != nil {
@@ -150,11 +194,11 @@ func EnrichNote(ctx context.Context, exec *skill.Executor, crawler Crawler, in N
 		return NoteResult{}, fmt.Errorf("enrichtopics: write %s: %w", abs, err)
 	}
 
-	logRel, err := appendLog(in.VaultRoot, strings.TrimSuffix(filepath.Base(abs), ".md"), rel, today)
+	logRel, err := appendLog(in.VaultRoot, strings.TrimSuffix(filepath.Base(abs), ".md"), cand.Rel, today)
 	if err != nil {
 		return NoteResult{}, err
 	}
-	return NoteResult{NotePath: rel, LogPath: logRel, Crawled: crawled}, nil
+	return NoteResult{NotePath: cand.Rel, LogPath: logRel, Crawled: cand.Crawled}, nil
 }
 
 // appendEnrichedKey inserts `enriched: YYYY-MM-DD` immediately before

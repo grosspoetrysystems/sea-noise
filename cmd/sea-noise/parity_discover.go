@@ -41,6 +41,7 @@ func runParityDiscover(args []string) error {
 	keepNamesArg := fs.String("keep-names", "", "comma-separated list of entity names to render profile prompts for (--mode profile only)")
 	keepTypesArg := fs.String("keep-types", "", "comma-separated list of name:type pairs assigning entity-type to each keep-name (--mode profile only)")
 	crawlStubsDir := fs.String("crawl-stubs-dir", "", "directory of *.md crawl-stub blobs for enrich-topics StubCrawler (defaults to testdata/crawl-stubs/enrich-topics relative to repo root or binary)")
+	notePath := fs.String("note", "", "vault-relative path of the note to render (enrich-note workflow only)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -93,8 +94,21 @@ func runParityDiscover(args []string) error {
 			stubsDir = guessCrawlStubsDir()
 		}
 		return discoverEnrichTopics(briefSkill, *vaultRoot, stubsDir)
+	case "enrich-note":
+		noteSkill, ok := skills["enrich-single-note"]
+		if !ok {
+			return fmt.Errorf("skill %q not found in %s", "enrich-single-note", skillsPath)
+		}
+		if *notePath == "" {
+			return errors.New("--note required for enrich-note workflow")
+		}
+		stubsDir := *crawlStubsDir
+		if stubsDir == "" {
+			stubsDir = guessCrawlStubsDir()
+		}
+		return discoverEnrichNote(noteSkill, *vaultRoot, *notePath, stubsDir)
 	default:
-		return fmt.Errorf("parity-discover does not yet support workflow %q (only summarize-content, profile-entities, enrich-topics)", *skillName)
+		return fmt.Errorf("parity-discover does not yet support workflow %q (only summarize-content, profile-entities, enrich-topics, enrich-note)", *skillName)
 	}
 }
 
@@ -228,6 +242,26 @@ func discoverEnrichTopics(briefSkill *skill.Skill, vaultRoot, stubsDir string) e
 		out = append(out, discoveredPrompt{Kind: "enrich", Rel: c.Topic, Prompt: prompt})
 	}
 	return emitDiscovered(out)
+}
+
+// discoverEnrichNote renders the enrich-single-note prompt for the
+// supplied note path. Single LLM call per invocation; mirrors the W2
+// summarize-transcripts shape. Uses StubCrawler so the rendered
+// prompt's WebSection is deterministic.
+func discoverEnrichNote(noteSkill *skill.Skill, vaultRoot, notePath, stubsDir string) error {
+	stub, err := crawl.NewStubCrawler(stubsDir)
+	if err != nil {
+		return fmt.Errorf("load stub crawler from %s: %w", stubsDir, err)
+	}
+	cand, err := enrichtopics.BuildEnrichNoteInput(context.Background(), vaultRoot, notePath, stub)
+	if err != nil {
+		return err
+	}
+	prompt, err := noteSkill.Render(cand.SkillInput)
+	if err != nil {
+		return fmt.Errorf("render enrich-single-note skill: %w", err)
+	}
+	return emitDiscovered([]discoveredPrompt{{Kind: "enrich-note", Rel: cand.Rel, Prompt: prompt}})
 }
 
 func emitDiscovered(out []discoveredPrompt) error {
