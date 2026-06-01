@@ -82,18 +82,47 @@ type AutoResult struct {
 	Failed     []string // candidate names where Generate returned an error
 }
 
-// candidateClassification is one row of the filter-entity-candidates
+// CandidateClassification is one row of the filter-entity-candidates
 // skill's JSON output. The prototype prompt expects exactly these keys.
-type candidateClassification struct {
+type CandidateClassification struct {
 	Name string `json:"name"`
 	Keep bool   `json:"keep"`
 	Type string `json:"type"`
 }
 
-// filterEntityCandidatesInput is the data the filter-entity-candidates
-// skill template expects.
-type filterEntityCandidatesInput struct {
+// FilterEntityCandidatesInput is the data the filter-entity-candidates
+// skill template expects. Exported so parity-discovery callers can
+// render the same prompt the live workflow would assemble without
+// invoking the LLM.
+type FilterEntityCandidatesInput struct {
 	CandidatesText string
+}
+
+// rankedCandidate is one entity candidate plus its mention count, in
+// the ranked + threshold-filtered + log-deduped order GenerateAuto
+// would pass to the filter skill.
+type rankedCandidate struct {
+	Name  string
+	Count int
+}
+
+// EntityFilterCandidate bundles the candidate names that survived
+// ranking + threshold + log-dedup, paired with the exact skill input
+// the live workflow would pass to the filter-entity-candidates skill.
+// Names is empty when no candidate qualifies (the live workflow would
+// no-op in that case).
+type EntityFilterCandidate struct {
+	Names      []string
+	SkillInput FilterEntityCandidatesInput
+}
+
+// EntityProfileCandidate is one post-filter, post-cap entity that the
+// live workflow would profile, paired with the exact skill input
+// Generate would assemble for the generate-entity-profile skill.
+type EntityProfileCandidate struct {
+	Entity     string
+	EntityType string
+	SkillInput GenerateEntityProfileInput
 }
 
 // GenerateAuto is the vault-wide auto-mode entry point. It scans
@@ -106,65 +135,20 @@ type filterEntityCandidatesInput struct {
 // existing single-entity Generate on each kept entity.
 func GenerateAuto(ctx context.Context, exec *skill.Executor, in AutoInput) (AutoResult, error) {
 	var result AutoResult
-	threshold := in.Threshold
-	if threshold <= 0 {
-		threshold = DefaultAutoThreshold
-	}
-	cap := in.MaxPerRun
-	if cap <= 0 {
-		cap = DefaultMaxAutoPerRun
-	}
 
-	counts, err := extractEntityCounts(in.VaultRoot)
+	candidates, skippedFromLog, err := rankCandidates(in)
 	if err != nil {
 		return result, err
 	}
-	profiled, err := readProfilesLog(in.VaultRoot)
-	if err != nil {
-		return result, err
-	}
-
-	// Top-N filter, threshold, dedup against the log.
-	type ranked struct {
-		name  string
-		count int
-	}
-	ranks := make([]ranked, 0, len(counts))
-	for name, count := range counts {
-		ranks = append(ranks, ranked{name: name, count: count})
-	}
-	sort.Slice(ranks, func(i, j int) bool {
-		if ranks[i].count != ranks[j].count {
-			return ranks[i].count > ranks[j].count
-		}
-		return ranks[i].name < ranks[j].name
-	})
-	if len(ranks) > MaxCandidatesBeforeFilter {
-		ranks = ranks[:MaxCandidatesBeforeFilter]
-	}
-	candidates := make([]ranked, 0, len(ranks))
-	for _, r := range ranks {
-		if r.count < threshold {
-			continue
-		}
-		if profiled[r.name] {
-			result.Skipped = append(result.Skipped, r.name)
-			continue
-		}
-		candidates = append(candidates, r)
-	}
+	result.Skipped = append(result.Skipped, skippedFromLog...)
 	result.Considered = len(candidates)
 	if len(candidates) == 0 {
 		return result, nil
 	}
 
 	// Bulk classification via the filter-entity-candidates skill.
-	names := make([]string, len(candidates))
-	for i, c := range candidates {
-		names[i] = c.name
-	}
-	candidatesText := strings.Join(prefixDashes(names), "\n")
-	raw, err := exec.Execute(ctx, "filter-entity-candidates", filterEntityCandidatesInput{
+	candidatesText := buildCandidatesText(candidates)
+	raw, err := exec.Execute(ctx, "filter-entity-candidates", FilterEntityCandidatesInput{
 		CandidatesText: candidatesText,
 	})
 	keep := map[string]string{} // name → entity type
@@ -181,35 +165,182 @@ func GenerateAuto(ctx context.Context, exec *skill.Executor, in AutoInput) (Auto
 	// empty parse, keep every candidate so the user still gets results.
 	if len(keep) == 0 {
 		for _, c := range candidates {
-			keep[c.name] = "concept"
+			keep[c.Name] = "concept"
 		}
+	}
+
+	cap := in.MaxPerRun
+	if cap <= 0 {
+		cap = DefaultMaxAutoPerRun
 	}
 
 	// Cap + execute. Iterate in the ranked order so the cap selects
 	// the highest-count candidates deterministically.
 	for _, c := range candidates {
-		etype, ok := keep[c.name]
+		etype, ok := keep[c.Name]
 		if !ok {
-			result.Skipped = append(result.Skipped, c.name)
+			result.Skipped = append(result.Skipped, c.Name)
 			continue
 		}
 		if len(result.Profiled) >= cap {
-			result.Skipped = append(result.Skipped, c.name)
+			result.Skipped = append(result.Skipped, c.Name)
 			continue
 		}
 		res, gerr := Generate(ctx, exec, Input{
 			VaultRoot:  in.VaultRoot,
-			Entity:     c.name,
+			Entity:     c.Name,
 			EntityType: etype,
 			Today:      in.Today,
 		})
 		if gerr != nil {
-			result.Failed = append(result.Failed, c.name)
+			result.Failed = append(result.Failed, c.Name)
 			continue
 		}
 		result.Profiled = append(result.Profiled, res)
 	}
 	return result, nil
+}
+
+// WalkEntityFilterCandidate runs the candidate ranking + threshold +
+// log-dedup the live workflow would perform and returns the post-rank
+// candidate names paired with the exact skill input the
+// filter-entity-candidates skill would receive. Pure read; never
+// invokes the LLM. The returned EntityFilterCandidate's Names is empty
+// (and SkillInput.CandidatesText is empty) when no candidate would
+// survive — equivalent to the live workflow no-opping.
+//
+// Used by parity-discovery (`sea-noise parity-discover`) to render the
+// filter-pass prompt for envelope capture.
+func WalkEntityFilterCandidate(in AutoInput) (EntityFilterCandidate, error) {
+	candidates, _, err := rankCandidates(in)
+	if err != nil {
+		return EntityFilterCandidate{}, err
+	}
+	if len(candidates) == 0 {
+		return EntityFilterCandidate{}, nil
+	}
+	names := make([]string, len(candidates))
+	for i, c := range candidates {
+		names[i] = c.Name
+	}
+	return EntityFilterCandidate{
+		Names: names,
+		SkillInput: FilterEntityCandidatesInput{
+			CandidatesText: buildCandidatesText(candidates),
+		},
+	}, nil
+}
+
+// WalkEntityProfileCandidates re-runs the candidate ranking, applies
+// the supplied keep set (post-filter name → entity-type classifications,
+// typically parsed from a captured filter envelope), caps at MaxPerRun,
+// finds mentions per kept entity, and returns one EntityProfileCandidate
+// per kept entity in ranked order. Pure read; never invokes the LLM.
+//
+// Used by parity-discovery (`sea-noise parity-discover`) to render the
+// per-entity profile prompts on the second discover pass, once the
+// filter envelope has been captured and its keep set is known.
+func WalkEntityProfileCandidates(in AutoInput, keep map[string]string) ([]EntityProfileCandidate, error) {
+	candidates, _, err := rankCandidates(in)
+	if err != nil {
+		return nil, err
+	}
+	cap := in.MaxPerRun
+	if cap <= 0 {
+		cap = DefaultMaxAutoPerRun
+	}
+
+	out := make([]EntityProfileCandidate, 0, len(candidates))
+	for _, c := range candidates {
+		etype, ok := keep[c.Name]
+		if !ok {
+			continue
+		}
+		if len(out) >= cap {
+			break
+		}
+		mentions, err := findMentions(in.VaultRoot, c.Name)
+		if err != nil {
+			return nil, err
+		}
+		if len(mentions) == 0 {
+			continue
+		}
+		out = append(out, EntityProfileCandidate{
+			Entity:     c.Name,
+			EntityType: etype,
+			SkillInput: GenerateEntityProfileInput{
+				Entity:       c.Name,
+				MentionsText: formatMentions(mentions),
+				MentionCount: len(mentions),
+			},
+		})
+	}
+	return out, nil
+}
+
+// rankCandidates performs steps 1-3 of GenerateAuto's pipeline:
+// extract entity counts, dedup against the profiles log, threshold,
+// and sort by (count desc, name asc) truncated at
+// MaxCandidatesBeforeFilter. Returns the ranked candidates plus the
+// names skipped because they were already in the log (callers
+// surface these in AutoResult.Skipped).
+//
+// Single-sources the qualification logic so the live workflow and
+// parity-discovery can't drift.
+func rankCandidates(in AutoInput) ([]rankedCandidate, []string, error) {
+	threshold := in.Threshold
+	if threshold <= 0 {
+		threshold = DefaultAutoThreshold
+	}
+
+	counts, err := extractEntityCounts(in.VaultRoot)
+	if err != nil {
+		return nil, nil, err
+	}
+	profiled, err := readProfilesLog(in.VaultRoot)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ranks := make([]rankedCandidate, 0, len(counts))
+	for name, count := range counts {
+		ranks = append(ranks, rankedCandidate{Name: name, Count: count})
+	}
+	sort.Slice(ranks, func(i, j int) bool {
+		if ranks[i].Count != ranks[j].Count {
+			return ranks[i].Count > ranks[j].Count
+		}
+		return ranks[i].Name < ranks[j].Name
+	})
+	if len(ranks) > MaxCandidatesBeforeFilter {
+		ranks = ranks[:MaxCandidatesBeforeFilter]
+	}
+
+	var skippedFromLog []string
+	candidates := make([]rankedCandidate, 0, len(ranks))
+	for _, r := range ranks {
+		if r.Count < threshold {
+			continue
+		}
+		if profiled[r.Name] {
+			skippedFromLog = append(skippedFromLog, r.Name)
+			continue
+		}
+		candidates = append(candidates, r)
+	}
+	return candidates, skippedFromLog, nil
+}
+
+// buildCandidatesText renders the candidate list into the exact
+// `- <name>` newline-separated form the filter-entity-candidates skill
+// template's CandidatesText field expects.
+func buildCandidatesText(candidates []rankedCandidate) string {
+	names := make([]string, len(candidates))
+	for i, c := range candidates {
+		names[i] = c.Name
+	}
+	return strings.Join(prefixDashes(names), "\n")
 }
 
 // --- helpers ---
@@ -332,12 +463,12 @@ func readProfilesLog(vaultRoot string) (map[string]bool, error) {
 // re.DOTALL)` extraction.
 var jsonArrayPattern = regexp.MustCompile(`(?s)\[.*\]`)
 
-func parseClassifications(raw string) ([]candidateClassification, error) {
+func parseClassifications(raw string) ([]CandidateClassification, error) {
 	m := jsonArrayPattern.FindString(raw)
 	if m == "" {
 		return nil, errors.New("entityprofile: no JSON array in filter response")
 	}
-	var out []candidateClassification
+	var out []CandidateClassification
 	if err := json.Unmarshal([]byte(m), &out); err != nil {
 		return nil, fmt.Errorf("entityprofile: decode filter response: %w", err)
 	}

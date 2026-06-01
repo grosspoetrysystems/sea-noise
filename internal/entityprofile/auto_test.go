@@ -3,6 +3,7 @@ package entityprofile
 import (
 	"context"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -171,6 +172,192 @@ func TestGenerateAuto_SkipsExcludedDirs(t *testing.T) {
 	}
 	if res.Considered != 0 {
 		t.Errorf("Considered = %d, want 0", res.Considered)
+	}
+}
+
+// --- Walk helpers (parity-discovery surface) ---
+
+func TestWalkEntityFilterCandidate_Happy(t *testing.T) {
+	vault := t.TempDir()
+	writeNote(t, vault, "notes/fleeting/a.md", `---
+title: First Note
+---
+
+Sam Kriss writes essays. Sam Kriss has a substack. Sam Kriss again. Sam Kriss
+again. Sam Kriss.
+`)
+	writeNote(t, vault, "notes/fleeting/b.md", `---
+title: Anthropic Talk
+---
+
+Dario Amodei spoke yesterday. Dario Amodei runs Anthropic. Dario Amodei.
+Dario Amodei.
+`)
+
+	got, err := WalkEntityFilterCandidate(AutoInput{
+		VaultRoot: vault,
+		Threshold: 4,
+	})
+	if err != nil {
+		t.Fatalf("WalkEntityFilterCandidate: %v", err)
+	}
+	// Sam Kriss (5) before Dario Amodei (4); name-asc tiebreak doesn't
+	// apply here since counts differ.
+	wantNames := []string{"Sam Kriss", "Dario Amodei"}
+	if !reflect.DeepEqual(got.Names, wantNames) {
+		t.Errorf("Names = %v, want %v", got.Names, wantNames)
+	}
+	wantText := "- Sam Kriss\n- Dario Amodei"
+	if got.SkillInput.CandidatesText != wantText {
+		t.Errorf("CandidatesText = %q, want %q", got.SkillInput.CandidatesText, wantText)
+	}
+}
+
+func TestWalkEntityFilterCandidate_EmptyWhenBelowThreshold(t *testing.T) {
+	vault := t.TempDir()
+	writeNote(t, vault, "notes/fleeting/a.md", `---
+title: Sparse
+---
+
+Sam Kriss. Sam Kriss.
+`)
+	got, err := WalkEntityFilterCandidate(AutoInput{
+		VaultRoot: vault,
+		Threshold: 5,
+	})
+	if err != nil {
+		t.Fatalf("WalkEntityFilterCandidate: %v", err)
+	}
+	if len(got.Names) != 0 {
+		t.Errorf("Names = %v, want empty (below threshold)", got.Names)
+	}
+	if got.SkillInput.CandidatesText != "" {
+		t.Errorf("CandidatesText = %q, want empty", got.SkillInput.CandidatesText)
+	}
+}
+
+func TestWalkEntityFilterCandidate_SkipsAlreadyProfiled(t *testing.T) {
+	vault := t.TempDir()
+	writeNote(t, vault, "notes/fleeting/a.md", `---
+title: Many
+---
+
+Sam Kriss. Sam Kriss. Sam Kriss. Sam Kriss. Sam Kriss. Sam Kriss.
+`)
+	writeNote(t, vault, "_meta/entity-profiles-log.md", `# Entity Profiles Log
+
+- Sam Kriss — 2026-05-20 — notes/entities/2026-05-20-profile-sam-kriss.md
+`)
+	got, err := WalkEntityFilterCandidate(AutoInput{
+		VaultRoot: vault,
+		Threshold: 3,
+	})
+	if err != nil {
+		t.Fatalf("WalkEntityFilterCandidate: %v", err)
+	}
+	if len(got.Names) != 0 {
+		t.Errorf("Names = %v, want empty (already logged)", got.Names)
+	}
+}
+
+func TestWalkEntityProfileCandidates_Happy(t *testing.T) {
+	vault := t.TempDir()
+	writeNote(t, vault, "notes/fleeting/a.md", `---
+title: First
+---
+
+Sam Kriss writes essays. Sam Kriss. Sam Kriss. Sam Kriss. Sam Kriss.
+`)
+	writeNote(t, vault, "notes/fleeting/b.md", `---
+title: Second
+---
+
+Dario Amodei spoke. Dario Amodei. Dario Amodei. Dario Amodei.
+`)
+	keep := map[string]string{"Sam Kriss": "person", "Dario Amodei": "person"}
+	got, err := WalkEntityProfileCandidates(AutoInput{
+		VaultRoot: vault,
+		Threshold: 4,
+	}, keep)
+	if err != nil {
+		t.Fatalf("WalkEntityProfileCandidates: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
+	}
+	// Ranked order: Sam (5) before Dario (4).
+	if got[0].Entity != "Sam Kriss" || got[0].EntityType != "person" {
+		t.Errorf("got[0] = {%q, %q}, want {Sam Kriss, person}", got[0].Entity, got[0].EntityType)
+	}
+	if got[1].Entity != "Dario Amodei" {
+		t.Errorf("got[1].Entity = %q, want Dario Amodei", got[1].Entity)
+	}
+	// Skill input should carry the entity, mention count, and a non-empty
+	// mentions block. Don't pin the body text — it's the prototype's
+	// formatMentions shape and would be brittle.
+	if got[0].SkillInput.Entity != "Sam Kriss" {
+		t.Errorf("SkillInput.Entity = %q, want Sam Kriss", got[0].SkillInput.Entity)
+	}
+	if got[0].SkillInput.MentionCount != 1 {
+		t.Errorf("SkillInput.MentionCount = %d, want 1 (one note with mentions)", got[0].SkillInput.MentionCount)
+	}
+	if !strings.Contains(got[0].SkillInput.MentionsText, "Sam Kriss") {
+		t.Errorf("SkillInput.MentionsText missing entity name: %q", got[0].SkillInput.MentionsText)
+	}
+}
+
+func TestWalkEntityProfileCandidates_RespectsCap(t *testing.T) {
+	vault := t.TempDir()
+	writeNote(t, vault, "notes/fleeting/a.md", `---
+title: A
+---
+
+Alpha Bravo. Alpha Bravo. Alpha Bravo. Alpha Bravo. Alpha Bravo.
+Charlie Delta. Charlie Delta. Charlie Delta. Charlie Delta. Charlie Delta.
+Echo Foxtrot. Echo Foxtrot. Echo Foxtrot. Echo Foxtrot. Echo Foxtrot.
+`)
+	keep := map[string]string{
+		"Alpha Bravo":   "concept",
+		"Charlie Delta": "concept",
+		"Echo Foxtrot":  "concept",
+	}
+	got, err := WalkEntityProfileCandidates(AutoInput{
+		VaultRoot: vault,
+		Threshold: 3,
+		MaxPerRun: 1,
+	}, keep)
+	if err != nil {
+		t.Fatalf("WalkEntityProfileCandidates: %v", err)
+	}
+	if len(got) != 1 {
+		t.Errorf("len = %d, want 1 (capped)", len(got))
+	}
+}
+
+func TestWalkEntityProfileCandidates_DropsNotInKeep(t *testing.T) {
+	vault := t.TempDir()
+	writeNote(t, vault, "notes/fleeting/a.md", `---
+title: Many
+---
+
+Sam Kriss. Sam Kriss. Sam Kriss. Sam Kriss. Sam Kriss.
+Dario Amodei. Dario Amodei. Dario Amodei. Dario Amodei.
+`)
+	// Only Sam in the keep set; Dario gets dropped even though
+	// he's above threshold.
+	keep := map[string]string{"Sam Kriss": "person"}
+	got, err := WalkEntityProfileCandidates(AutoInput{
+		VaultRoot: vault,
+		Threshold: 4,
+	}, keep)
+	if err != nil {
+		t.Fatalf("WalkEntityProfileCandidates: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len = %d, want 1 (only Sam in keep)", len(got))
+	}
+	if got[0].Entity != "Sam Kriss" {
+		t.Errorf("got[0].Entity = %q, want Sam Kriss", got[0].Entity)
 	}
 }
 

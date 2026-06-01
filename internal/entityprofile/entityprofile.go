@@ -60,9 +60,11 @@ type Mention struct {
 	Context []string // up to 3 sentences containing the entity
 }
 
-// generateEntityProfileInput is the data the generate-entity-profile
-// skill template expects.
-type generateEntityProfileInput struct {
+// GenerateEntityProfileInput is the data the generate-entity-profile
+// skill template expects. Exported so parity-discovery callers can
+// render the same prompt the live workflow would assemble without
+// invoking the LLM.
+type GenerateEntityProfileInput struct {
 	Entity       string
 	MentionsText string
 	MentionCount int
@@ -85,7 +87,7 @@ func Generate(ctx context.Context, exec *skill.Executor, in Input) (Result, erro
 	}
 
 	mentionsText := formatMentions(mentions)
-	body, err := exec.Execute(ctx, "generate-entity-profile", generateEntityProfileInput{
+	body, err := exec.Execute(ctx, "generate-entity-profile", GenerateEntityProfileInput{
 		Entity:       in.Entity,
 		MentionsText: mentionsText,
 		MentionCount: len(mentions),

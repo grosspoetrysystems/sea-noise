@@ -6,26 +6,36 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"sea-noise/internal/ai/skill"
+	"sea-noise/internal/entityprofile"
 	"sea-noise/internal/summarizer"
 )
 
 // runParityDiscover implements `sea-noise parity-discover`. It walks
 // the supplied vault directory using the same qualification rules the
-// live workflow applies, renders the Go skill prompt for each
+// live workflow applies, renders the Go skill prompt(s) for each
 // qualifying note WITHOUT invoking the LLM, and prints a JSON array
-// of {rel, prompt} entries to stdout.
+// of {kind, rel, prompt} entries to stdout.
 //
-// Used by testdata/scripts/capture-llm-envelopes.py to obtain Go-side
-// prompts for envelope keying (per the W2 spike, path A — hybrid
-// two-pass capture). Test/parity infrastructure only; never wired
-// into a daemon code path.
+// The --skill flag names a workflow alias (not necessarily a single
+// skill file): `summarize-content` for summarize-transcripts (one
+// skill), `profile-entities` for the profile-entities two-phase
+// workflow (filter + per-entity).
+//
+// Used by testdata/scripts/capture-*.py to obtain Go-side prompts
+// for envelope keying (per the W2 spike, path A — hybrid two-pass
+// capture, extended to multi-skill workflows in W3). Test/parity
+// infrastructure only; never wired into a daemon code path.
 func runParityDiscover(args []string) error {
 	fs := flag.NewFlagSet("parity-discover", flag.ExitOnError)
-	skillName := fs.String("skill", "", "skill name to render (currently only summarize-content)")
+	skillName := fs.String("skill", "", "workflow alias to render: summarize-content | profile-entities")
 	vaultRoot := fs.String("vault", "", "absolute path to the vault root to walk")
 	skillsDir := fs.String("skills-dir", "", "directory containing inference skill files (defaults to .agents/shared/skills/inference relative to repo root or binary)")
+	mode := fs.String("mode", "", "discovery mode for multi-phase workflows: filter | profile (profile-entities only)")
+	keepNamesArg := fs.String("keep-names", "", "comma-separated list of entity names to render profile prompts for (--mode profile only)")
+	keepTypesArg := fs.String("keep-types", "", "comma-separated list of name:type pairs assigning entity-type to each keep-name (--mode profile only)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -45,20 +55,36 @@ func runParityDiscover(args []string) error {
 	if err != nil {
 		return fmt.Errorf("load skills from %s: %w", skillsPath, err)
 	}
-	s, ok := skills[*skillName]
-	if !ok {
-		return fmt.Errorf("skill %q not found in %s", *skillName, skillsPath)
-	}
 
 	switch *skillName {
 	case "summarize-content":
+		s, ok := skills["summarize-content"]
+		if !ok {
+			return fmt.Errorf("skill %q not found in %s", "summarize-content", skillsPath)
+		}
 		return discoverSummarizeContent(s, *vaultRoot)
+	case "profile-entities":
+		filterSkill, ok := skills["filter-entity-candidates"]
+		if !ok {
+			return fmt.Errorf("skill %q not found in %s", "filter-entity-candidates", skillsPath)
+		}
+		profileSkill, ok := skills["generate-entity-profile"]
+		if !ok {
+			return fmt.Errorf("skill %q not found in %s", "generate-entity-profile", skillsPath)
+		}
+		keepNames := splitCSV(*keepNamesArg)
+		keepTypes, err := parseKeepTypes(*keepTypesArg)
+		if err != nil {
+			return err
+		}
+		return discoverProfileEntities(filterSkill, profileSkill, *vaultRoot, *mode, keepNames, keepTypes)
 	default:
-		return fmt.Errorf("parity-discover does not yet support skill %q (only summarize-content)", *skillName)
+		return fmt.Errorf("parity-discover does not yet support workflow %q (only summarize-content, profile-entities)", *skillName)
 	}
 }
 
 type discoveredPrompt struct {
+	Kind   string `json:"kind"`
 	Rel    string `json:"rel"`
 	Prompt string `json:"prompt"`
 }
@@ -75,10 +101,99 @@ func discoverSummarizeContent(s *skill.Skill, vaultRoot string) error {
 		if err != nil {
 			return fmt.Errorf("render skill for %s: %w", c.Rel, err)
 		}
-		out = append(out, discoveredPrompt{Rel: c.Rel, Prompt: prompt})
+		out = append(out, discoveredPrompt{Kind: "summarize", Rel: c.Rel, Prompt: prompt})
 	}
+	return emitDiscovered(out)
+}
 
+// discoverProfileEntities renders the profile-entities workflow's
+// Go-side prompts for parity-discovery. The workflow has two LLM
+// phases: a single bulk filter-entity-candidates call, then N
+// per-entity generate-entity-profile calls (where N is bounded by
+// MaxAutoPerRun and gated by which candidates the filter response
+// classifies as keep).
+//
+// The capture script orchestrates the two passes: first invoke with
+// --mode filter to capture the filter envelope; parse its response
+// to extract the kept names and types; then invoke with
+// --mode profile --keep-names "..." --keep-types "..." to render the
+// profile prompts.
+func discoverProfileEntities(filterSkill, profileSkill *skill.Skill, vaultRoot, mode string, keepNames []string, keepTypes map[string]string) error {
+	switch mode {
+	case "", "filter":
+		cand, err := entityprofile.WalkEntityFilterCandidate(entityprofile.AutoInput{VaultRoot: vaultRoot})
+		if err != nil {
+			return err
+		}
+		if len(cand.Names) == 0 {
+			return emitDiscovered(nil)
+		}
+		prompt, err := filterSkill.Render(cand.SkillInput)
+		if err != nil {
+			return fmt.Errorf("render filter skill: %w", err)
+		}
+		return emitDiscovered([]discoveredPrompt{{Kind: "filter", Rel: "", Prompt: prompt}})
+	case "profile":
+		if len(keepNames) == 0 {
+			return errors.New("--mode profile requires --keep-names")
+		}
+		keep := map[string]string{}
+		for _, name := range keepNames {
+			etype, ok := keepTypes[name]
+			if !ok || etype == "" {
+				etype = "concept"
+			}
+			keep[name] = etype
+		}
+		candidates, err := entityprofile.WalkEntityProfileCandidates(entityprofile.AutoInput{VaultRoot: vaultRoot}, keep)
+		if err != nil {
+			return err
+		}
+		out := make([]discoveredPrompt, 0, len(candidates))
+		for _, c := range candidates {
+			prompt, err := profileSkill.Render(c.SkillInput)
+			if err != nil {
+				return fmt.Errorf("render profile skill for %s: %w", c.Entity, err)
+			}
+			out = append(out, discoveredPrompt{Kind: "profile", Rel: c.Entity, Prompt: prompt})
+		}
+		return emitDiscovered(out)
+	default:
+		return fmt.Errorf("unknown --mode %q (want filter|profile)", mode)
+	}
+}
+
+func emitDiscovered(out []discoveredPrompt) error {
+	if out == nil {
+		out = []discoveredPrompt{}
+	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(out)
+}
+
+// parseKeepTypes parses a "Name1:type1,Name2:type2" pair list. An
+// entity name may contain spaces but never a colon or comma.
+func parseKeepTypes(s string) (map[string]string, error) {
+	out := map[string]string{}
+	if s == "" {
+		return out, nil
+	}
+	for _, pair := range strings.Split(s, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		i := strings.Index(pair, ":")
+		if i < 0 {
+			return nil, fmt.Errorf("--keep-types pair %q missing colon", pair)
+		}
+		name := strings.TrimSpace(pair[:i])
+		etype := strings.TrimSpace(pair[i+1:])
+		if name == "" || etype == "" {
+			return nil, fmt.Errorf("--keep-types pair %q has empty name or type", pair)
+		}
+		out[name] = etype
+	}
+	return out, nil
 }
