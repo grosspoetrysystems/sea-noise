@@ -118,10 +118,13 @@ type EntityFilterCandidate struct {
 
 // EntityProfileCandidate is one post-filter, post-cap entity that the
 // live workflow would profile, paired with the exact skill input
-// Generate would assemble for the generate-entity-profile skill.
+// Generate would assemble for the generate-entity-profile skill and
+// the raw mentions used to construct the profile note's backlinks
+// section.
 type EntityProfileCandidate struct {
 	Entity     string
 	EntityType string
+	Mentions   []Mention
 	SkillInput GenerateEntityProfileInput
 }
 
@@ -169,34 +172,49 @@ func GenerateAuto(ctx context.Context, exec *skill.Executor, in AutoInput) (Auto
 		}
 	}
 
-	cap := in.MaxPerRun
-	if cap <= 0 {
-		cap = DefaultMaxAutoPerRun
+	// Pre-compute profile candidates (with mentions) against the
+	// INITIAL vault state. Mirrors the prototype's auto_mode shape:
+	// `notes = collect_vault_notes()` once, then `find_notes_mentioning`
+	// operates on the cached set. Re-walking between profile writes
+	// would let earlier-written profile files mutate later mention
+	// counts — a parity break against the prototype.
+	profileCandidates, err := WalkEntityProfileCandidates(in, keep)
+	if err != nil {
+		return result, err
 	}
 
-	// Cap + execute. Iterate in the ranked order so the cap selects
-	// the highest-count candidates deterministically.
-	for _, c := range candidates {
-		etype, ok := keep[c.Name]
-		if !ok {
-			result.Skipped = append(result.Skipped, c.Name)
-			continue
-		}
-		if len(result.Profiled) >= cap {
-			result.Skipped = append(result.Skipped, c.Name)
-			continue
-		}
-		res, gerr := Generate(ctx, exec, Input{
-			VaultRoot:  in.VaultRoot,
-			Entity:     c.Name,
-			EntityType: etype,
-			Today:      in.Today,
-		})
+	if in.Today.IsZero() {
+		in.Today = time.Now()
+	}
+
+	for _, c := range profileCandidates {
+		body, gerr := exec.Execute(ctx, "generate-entity-profile", c.SkillInput)
 		if gerr != nil {
-			result.Failed = append(result.Failed, c.Name)
+			result.Failed = append(result.Failed, c.Entity)
 			continue
 		}
-		result.Profiled = append(result.Profiled, res)
+		profileRel, werr := writeProfile(in.VaultRoot, c.Entity, c.EntityType, c.Mentions, body, in.Today)
+		if werr != nil {
+			return result, werr
+		}
+		logRel, lerr := appendLog(in.VaultRoot, c.Entity, profileRel, in.Today)
+		if lerr != nil {
+			return result, lerr
+		}
+		result.Profiled = append(result.Profiled, Result{
+			ProfilePath: profileRel,
+			LogPath:     logRel,
+			Mentions:    len(c.Mentions),
+		})
+	}
+
+	// Surface entities that the keep set didn't include (the live
+	// workflow's filter step dropped them). Mirrors the prototype's
+	// "show what was filtered out" affordance.
+	for _, c := range candidates {
+		if _, ok := keep[c.Name]; !ok {
+			result.Skipped = append(result.Skipped, c.Name)
+		}
 	}
 	return result, nil
 }
@@ -269,6 +287,7 @@ func WalkEntityProfileCandidates(in AutoInput, keep map[string]string) ([]Entity
 		out = append(out, EntityProfileCandidate{
 			Entity:     c.Name,
 			EntityType: etype,
+			Mentions:   mentions,
 			SkillInput: GenerateEntityProfileInput{
 				Entity:       c.Name,
 				MentionsText: formatMentions(mentions),
