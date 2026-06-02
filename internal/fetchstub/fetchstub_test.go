@@ -14,7 +14,7 @@ import (
 	"sea-noise/internal/fetchstub"
 )
 
-func TestProcessInbox_HydratesStub(t *testing.T) {
+func TestHydrateStubs_HydratesStub(t *testing.T) {
 	vault := t.TempDir()
 	writeNote(t, vault, "inbox/clip.md", `---
 title: Some Article
@@ -26,12 +26,12 @@ just a line
 `)
 
 	crawler := fakeCrawler{"https://example.com/post": "Crawled body text here."}
-	res, err := fetchstub.ProcessInbox(context.Background(), crawler, fetchstub.InboxInput{
+	res, err := fetchstub.HydrateStubs(context.Background(), crawler, fetchstub.HydrateInput{
 		VaultRoot: vault,
 		Now:       fixedNow(),
 	})
 	if err != nil {
-		t.Fatalf("ProcessInbox: %v", err)
+		t.Fatalf("HydrateStubs: %v", err)
 	}
 	if !sliceEqual(res.Hydrated, []string{"inbox/clip.md"}) {
 		t.Errorf("Hydrated = %v", res.Hydrated)
@@ -45,7 +45,7 @@ just a line
 	}
 }
 
-func TestProcessInbox_SkipsNonStub(t *testing.T) {
+func TestHydrateStubs_SkipsNonStub(t *testing.T) {
 	vault := t.TempDir()
 	// http source + clippings tag but body >= MinBodyChars.
 	long := strings.Repeat("body line.\n", 50)
@@ -73,9 +73,9 @@ x
 `)
 
 	crawler := fakeCrawler{}
-	res, err := fetchstub.ProcessInbox(context.Background(), crawler, fetchstub.InboxInput{VaultRoot: vault, Now: fixedNow()})
+	res, err := fetchstub.HydrateStubs(context.Background(), crawler, fetchstub.HydrateInput{VaultRoot: vault, Now: fixedNow()})
 	if err != nil {
-		t.Fatalf("ProcessInbox: %v", err)
+		t.Fatalf("HydrateStubs: %v", err)
 	}
 	if len(res.Hydrated) != 0 {
 		t.Errorf("Hydrated = %v, want empty", res.Hydrated)
@@ -85,7 +85,7 @@ x
 	}
 }
 
-func TestProcessInbox_DedupesAgainstVault(t *testing.T) {
+func TestHydrateStubs_DedupesAgainstVault(t *testing.T) {
 	vault := t.TempDir()
 	writeNote(t, vault, "notes/references/existing.md", `---
 title: Existing
@@ -104,9 +104,9 @@ stub
 `)
 
 	crawler := fakeCrawler{"https://example.com/dup": "SHOULD NOT BE CRAWLED"}
-	res, err := fetchstub.ProcessInbox(context.Background(), crawler, fetchstub.InboxInput{VaultRoot: vault, Now: fixedNow()})
+	res, err := fetchstub.HydrateStubs(context.Background(), crawler, fetchstub.HydrateInput{VaultRoot: vault, Now: fixedNow()})
 	if err != nil {
-		t.Fatalf("ProcessInbox: %v", err)
+		t.Fatalf("HydrateStubs: %v", err)
 	}
 	if len(res.Deduped) != 1 {
 		t.Fatalf("Deduped = %v, want 1", res.Deduped)
@@ -120,7 +120,7 @@ stub
 	}
 }
 
-func TestProcessInbox_FailedCrawlLogsToManifest(t *testing.T) {
+func TestHydrateStubs_FailedCrawlLogsToManifest(t *testing.T) {
 	vault := t.TempDir()
 	writeNote(t, vault, "inbox/clip.md", `---
 source: https://example.com/bad
@@ -132,9 +132,9 @@ x
 
 	crawler := fakeCrawler{} // empty → returns nil pages, treated as failure
 	now := fixedNow()
-	res, err := fetchstub.ProcessInbox(context.Background(), crawler, fetchstub.InboxInput{VaultRoot: vault, Now: now})
+	res, err := fetchstub.HydrateStubs(context.Background(), crawler, fetchstub.HydrateInput{VaultRoot: vault, Now: now})
 	if err != nil {
-		t.Fatalf("ProcessInbox: %v", err)
+		t.Fatalf("HydrateStubs: %v", err)
 	}
 	if len(res.Failed) != 1 {
 		t.Errorf("Failed = %v", res.Failed)
@@ -307,9 +307,9 @@ func TestNormalizeURL_StripsTrackingAndFragment(t *testing.T) {
 			// with the canonical URL and one inbox stub with the raw URL.
 			writeNote(t, vault, "notes/references/canonical.md", "---\nsource: "+c.want+"\n---\nbody\n")
 			writeNote(t, vault, "inbox/raw.md", "---\nsource: "+c.in+"\ntags: [clippings]\n---\nstub\n")
-			res, err := fetchstub.ProcessInbox(context.Background(), fakeCrawler{}, fetchstub.InboxInput{VaultRoot: vault, Now: fixedNow()})
+			res, err := fetchstub.HydrateStubs(context.Background(), fakeCrawler{}, fetchstub.HydrateInput{VaultRoot: vault, Now: fixedNow()})
 			if err != nil {
-				t.Fatalf("ProcessInbox: %v", err)
+				t.Fatalf("HydrateStubs: %v", err)
 			}
 			if len(res.Deduped) != 1 {
 				t.Errorf("expected dedup match for %q vs %q, got %+v", c.in, c.want, res)

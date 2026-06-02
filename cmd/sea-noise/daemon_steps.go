@@ -24,6 +24,8 @@ import (
 	"sea-noise/internal/summarizer"
 	"sea-noise/internal/todoist"
 	"sea-noise/internal/todoistsync"
+	"sea-noise/internal/youtube"
+	"sea-noise/internal/youtubefetch"
 )
 
 // daemonStepDeps holds the long-lived collaborators each step binding
@@ -52,6 +54,10 @@ func buildRegistry(deps daemonStepDeps) daemon.Registry {
 
 	retryCrawls := func(ctx context.Context) error {
 		_, err := fetchstub.RetryFailures(ctx, deps.Crawler, fetchstub.RetryInput{VaultRoot: v})
+		return err
+	}
+	hydrateStubsStep := func(ctx context.Context) error {
+		_, err := fetchstub.HydrateStubs(ctx, deps.Crawler, fetchstub.HydrateInput{VaultRoot: v})
 		return err
 	}
 	indexStep := func(ctx context.Context) error {
@@ -133,6 +139,11 @@ func buildRegistry(deps daemonStepDeps) daemon.Registry {
 		_, err := inboxprocess.Run(ctx, deps.Exec, inboxprocess.Input{VaultRoot: v})
 		return err
 	}
+	youtubeTranscriptStep := func(ctx context.Context) error {
+		client := youtube.New()
+		_, err := youtubefetch.FetchTranscripts(ctx, client, youtubefetch.Input{VaultRoot: v})
+		return err
+	}
 
 	return daemon.Registry{
 		Daily: []daemon.Step{
@@ -157,7 +168,9 @@ func buildRegistry(deps daemonStepDeps) daemon.Registry {
 			{Name: "profile-entities", Fn: profileAutoStep},
 		},
 		Inbox: []daemon.Step{
+			{Name: "hydrate-stubs", Fn: hydrateStubsStep},
 			{Name: "process-inbox", Fn: processInboxStep},
+			{Name: "youtube-transcript", Fn: youtubeTranscriptStep},
 		},
 	}
 }

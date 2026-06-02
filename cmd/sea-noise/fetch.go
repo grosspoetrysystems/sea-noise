@@ -42,7 +42,7 @@ func runFetch(args []string) error {
 		return nil
 	}
 
-	res, err := fetchstub.ProcessInbox(context.Background(), crawler, fetchstub.InboxInput{VaultRoot: vaultRoot})
+	res, err := fetchstub.HydrateStubs(context.Background(), crawler, fetchstub.HydrateInput{VaultRoot: vaultRoot})
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,7 @@
 //
 // Two surfaces:
 //
-//   - ProcessInbox walks inbox/*.md, discards notes whose source URL
+//   - HydrateStubs walks inbox/*.md, discards notes whose source URL
 //     already appears in the vault, then hydrates remaining stubs
 //     (notes with an http source, a `clippings` tag, and a body under
 //     MinBodyChars characters) by calling the configured crawler and
@@ -84,14 +84,14 @@ var BackoffSchedule = []time.Duration{
 // MaxRetries equals len(BackoffSchedule).
 var MaxRetries = len(BackoffSchedule)
 
-// InboxInput configures a ProcessInbox run.
-type InboxInput struct {
+// HydrateInput configures a HydrateStubs run.
+type HydrateInput struct {
 	VaultRoot string
 	Now       time.Time // injected clock; defaults to time.Now().UTC()
 }
 
-// InboxResult reports counts. All paths are vault-relative.
-type InboxResult struct {
+// HydrateResult reports counts. All paths are vault-relative.
+type HydrateResult struct {
 	Hydrated []string
 	Deduped  []string
 	Failed   []string
@@ -128,9 +128,19 @@ type ManifestEntry struct {
 	Abandoned       bool   `json:"abandoned"`
 }
 
-// ProcessInbox is the default-mode entry point.
-func ProcessInbox(ctx context.Context, crawler crawl.Crawler, in InboxInput) (InboxResult, error) {
-	var result InboxResult
+// HydrateStubs walks <vault>/inbox/, finds notes that are URL stubs
+// (clippings-tagged with body shorter than MIN_BODY_CHARS), crawls
+// the URL to fetch full page content, and replaces the stub body
+// with the hydrated content. Also dedupes against existing vault
+// URLs to discard already-clipped pages.
+//
+// Used as the first step of the inbox pipeline so that downstream
+// classification (Claude via process-inbox) sees full content rather
+// than just URLs.
+//
+// Ports the default mode of references/scripts/fetch-stub-content.py.
+func HydrateStubs(ctx context.Context, crawler crawl.Crawler, in HydrateInput) (HydrateResult, error) {
+	var result HydrateResult
 	now := nowOrDefault(in.Now)
 	inboxDir := filepath.Join(in.VaultRoot, "inbox")
 	entries, err := os.ReadDir(inboxDir)
