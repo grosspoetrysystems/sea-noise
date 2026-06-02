@@ -2,6 +2,7 @@ package watcher_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -183,10 +184,26 @@ func TestWatcher_InboxCreateFiresAction(t *testing.T) {
 	f.start(t)
 
 	f.touch(t, "inbox/note-1.md", "# hello\n")
-	got := f.awaitInbox(t)
-	if filepath.Base(got) != "note-1.md" {
-		t.Fatalf("inbox callback path: got %q want note-1.md", got)
+	// OnInboxCreate is coalesced — fires once per debounce window
+	// without a specific path (the inbox pipeline walks the whole
+	// inbox dir, so the trigger path is irrelevant at this layer).
+	_ = f.awaitInbox(t)
+}
+
+func TestWatcher_InboxCoalescesBurst(t *testing.T) {
+	f := newFixture(t, withDebounce(100*time.Millisecond))
+	f.start(t)
+
+	// Five inbox files in quick succession — should collapse to a
+	// single OnInboxCreate callback rather than firing five
+	// concurrent pipeline runs.
+	for i := 0; i < 5; i++ {
+		f.touch(t, fmt.Sprintf("inbox/burst-%d.md", i), "# burst\n")
 	}
+	_ = f.awaitInbox(t)
+	// No additional inbox callbacks should follow within the
+	// quiescence window — coalescing should have collapsed the rest.
+	f.assertNoEvent(t)
 }
 
 func TestWatcher_TopicModifyFiresAction(t *testing.T) {
@@ -223,19 +240,16 @@ func TestWatcher_StartupScanFiresInboxForPreexistingNotes(t *testing.T) {
 	f := newFixture(t)
 	// Inbox notes that existed before the daemon came up. The watcher
 	// must still hand these off to OnInboxCreate so a daemon restart
-	// doesn't leave them stuck.
+	// doesn't leave them stuck — but coalesced to a single fire (the
+	// inbox pipeline's walk picks up all the notes in one run).
 	f.touch(t, "inbox/pre-1.md", "")
 	f.touch(t, "inbox/pre-2.md", "")
 	f.start(t)
 
-	seen := map[string]bool{}
-	for i := 0; i < 2; i++ {
-		path := f.awaitInbox(t)
-		seen[filepath.Base(path)] = true
-	}
-	if !seen["pre-1.md"] || !seen["pre-2.md"] {
-		t.Fatalf("startup scan missed a note: %v", seen)
-	}
+	_ = f.awaitInbox(t)
+	// Single fire only — no second callback within the quiescence
+	// window.
+	f.assertNoEvent(t)
 }
 
 func TestWatcher_IgnoresNonMarkdownFiles(t *testing.T) {

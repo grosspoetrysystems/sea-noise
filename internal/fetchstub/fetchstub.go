@@ -28,11 +28,42 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"sea-noise/internal/crawl"
 	"sea-noise/internal/markdown"
 )
+
+// readFileWithRetry wraps os.ReadFile to handle macOS iCloud Drive's
+// "resource deadlock avoided" (syscall.EDEADLK) — fired when fsnotify
+// surfaces a new file before iCloud has finished materializing it
+// from the cloud. The kernel returns EDEADLK; iCloud typically
+// settles within a few hundred ms. We retry with linear backoff up
+// to ~5s total.
+//
+// Returns the file contents on success, or the last error encountered
+// on exhaustion. Any non-EDEADLK error short-circuits (no retry).
+func readFileWithRetry(path string) ([]byte, error) {
+	const (
+		maxAttempts = 20
+		backoff     = 250 * time.Millisecond
+	)
+	var lastErr error
+	for i := 0; i < maxAttempts; i++ {
+		raw, err := os.ReadFile(path)
+		if err == nil {
+			return raw, nil
+		}
+		lastErr = err
+		if !errors.Is(err, syscall.EDEADLK) {
+			return nil, err
+		}
+		// EDEADLK: iCloud still materializing; wait and retry.
+		time.Sleep(backoff)
+	}
+	return nil, lastErr
+}
 
 // MinBodyChars matches the prototype's MIN_BODY_CHARS threshold for
 // classifying a note as a hydration-needing stub.
@@ -159,7 +190,7 @@ func HydrateStubs(ctx context.Context, crawler crawl.Crawler, in HydrateInput) (
 	paths := mdPaths(entries, inboxDir)
 	for _, p := range paths {
 		rel, _ := filepath.Rel(in.VaultRoot, p)
-		raw, err := os.ReadFile(p)
+		raw, err := readFileWithRetry(p)
 		if err != nil {
 			return result, fmt.Errorf("fetchstub: read %s: %w", p, err)
 		}

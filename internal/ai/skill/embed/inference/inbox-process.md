@@ -41,4 +41,12 @@ For each file in {{.VaultRoot}}/inbox/:
 
 6. **Promote.** Move every note with a clear Tier 1 tag out of `inbox/` to its final directory (`notes/ideas/`, `notes/references/`, `notes/entities/`, `notes/assertions/`, `notes/todos/`, etc.). `#question` and `#fleeting` stay in `notes/fleeting/`. Low-signal captures move to `_meta/discarded/`.
 
-Report when finished: how many notes processed, how many promoted by tier, how many discarded, and the new tags introduced into topic-frequencies. Do not write a separate daily/YYYY-MM-DD.md — that's a different command.
+7. **Write your report.** Append a per-note classification report to `{{.VaultRoot}}/_meta/inbox-reports/YYYY-MM-DD.md` (today's date), creating the file + directory if missing. Use one bullet per note in the shape:
+
+   ```
+   - `<filename>` — tags: <comma-list> — content-type: <type> — <one-line summary> — promoted to <final-path>
+   ```
+
+   Do **NOT** write any report to `_meta/processing-logs/` — that file belongs exclusively to the daemon's step-completion log. Mixing report content with daemon log entries pollutes the format the `internal/signal/` and audit tooling parses.
+
+Then return a brief summary string as your response: "Processed N notes; promoted X to references/, Y to ideas/, Z to discarded/; W new tags introduced." The daemon captures this string for its own step-completion log line. Do not include the per-note detail in your response — that's already in the report file.

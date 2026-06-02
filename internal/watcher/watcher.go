@@ -97,7 +97,21 @@ type Watcher struct {
 	wg      sync.WaitGroup
 
 	timerMu sync.Mutex
-	timers  map[string]*time.Timer // per-path debounce
+	timers  map[string]*time.Timer // per-path debounce (OnNoteModify)
+	// inboxTimer coalesces all OnInboxCreate fires within the
+	// debounce window into a single pipeline run. Multiple inbox
+	// files arriving in quick succession (e.g., iCloud syncing a
+	// batch) collapse to one pipeline fire that processes all of
+	// them in one walk. Without this, every file produced its own
+	// concurrent pipeline run — wasteful and racy on shared vault
+	// state like _meta/topic-frequencies.md.
+	inboxTimer *time.Timer
+
+	// inboxMu serialises actual pipeline execution. Even when the
+	// coalescing timer collapses correctly, a slow pipeline + a
+	// timer firing during that pipeline could still overlap. The
+	// mutex ensures no two OnInboxCreate callbacks run concurrently.
+	inboxMu sync.Mutex
 }
 
 // New wires a Watcher. Call Start to begin observing.
@@ -205,9 +219,11 @@ func (w *Watcher) registerAll() error {
 	})
 }
 
-// scanInbox fires OnInboxCreate for every .md already in inbox/. Run
-// once at Start so notes the user dropped while the daemon was
-// offline get processed.
+// scanInbox fires OnInboxCreate ONCE if the inbox has any .md notes
+// at startup. Notes the user dropped while the daemon was offline
+// get processed in a single pipeline run rather than N concurrent
+// runs. Uses the coalescing schedule path so behaviour matches
+// runtime inbox events.
 func (w *Watcher) scanInbox(ctx context.Context) {
 	if w.cfg.Actions.OnInboxCreate == nil {
 		return
@@ -217,14 +233,18 @@ func (w *Watcher) scanInbox(ctx context.Context) {
 	if err != nil {
 		return // No inbox dir is fine — nothing to scan.
 	}
+	hasMd := false
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
-		if !strings.EqualFold(filepath.Ext(e.Name()), ".md") {
-			continue
+		if strings.EqualFold(filepath.Ext(e.Name()), ".md") {
+			hasMd = true
+			break
 		}
-		w.cfg.Actions.OnInboxCreate(ctx, filepath.Join(inbox, e.Name()))
+	}
+	if hasMd {
+		w.scheduleInbox(ctx)
 	}
 }
 
@@ -272,15 +292,47 @@ func (w *Watcher) handle(ctx context.Context, ev fsnotify.Event) {
 		return
 	}
 
-	switch {
-	case ev.Has(fsnotify.Create) && w.isInbox(ev.Name):
-		w.schedule(ctx, ev.Name, w.cfg.Actions.OnInboxCreate)
-	case ev.Has(fsnotify.Write), ev.Has(fsnotify.Create):
-		// Treat any markdown create-or-write that didn't match the
-		// inbox case as a modify. Atomic-rename editors emit
-		// create-of-existing-name for an in-place save.
+	// Inbox events: any Create or Write under inbox/ coalesces to a
+	// single pipeline fire. Multiple files in quick succession
+	// collapse to one run that picks up all of them via the
+	// pipeline's own inbox walk. inboxMu in scheduleInbox ensures
+	// no two pipeline runs overlap.
+	if w.isInbox(ev.Name) && (ev.Has(fsnotify.Create) || ev.Has(fsnotify.Write)) {
+		w.scheduleInbox(ctx)
+		return
+	}
+
+	// Non-inbox markdown writes: per-path modify debounce.
+	if ev.Has(fsnotify.Write) || ev.Has(fsnotify.Create) {
 		w.schedule(ctx, ev.Name, w.cfg.Actions.OnNoteModify)
 	}
+}
+
+// scheduleInbox debounces all OnInboxCreate fires through a single
+// shared timer. Resets the timer on each call; when it fires, runs
+// the callback under inboxMu so no concurrent pipeline executions
+// occur. The path argument is dropped intentionally — the inbox
+// pipeline walks the full inbox dir.
+func (w *Watcher) scheduleInbox(ctx context.Context) {
+	cb := w.cfg.Actions.OnInboxCreate
+	if cb == nil {
+		return
+	}
+	w.timerMu.Lock()
+	if w.inboxTimer != nil {
+		w.inboxTimer.Stop()
+	}
+	w.inboxTimer = time.AfterFunc(w.cfg.Debounce, func() {
+		w.timerMu.Lock()
+		w.inboxTimer = nil
+		w.timerMu.Unlock()
+		// Serialise: another scheduled fire that races past the
+		// debounce window still waits for this one to finish.
+		w.inboxMu.Lock()
+		defer w.inboxMu.Unlock()
+		cb(ctx, "") // path is meaningless at coalesce time; pipeline walks the dir
+	})
+	w.timerMu.Unlock()
 }
 
 // schedule fires cb(ctx, path) after the debounce window, collapsing

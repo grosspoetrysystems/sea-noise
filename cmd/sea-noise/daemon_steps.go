@@ -56,6 +56,10 @@ func buildRegistry(deps daemonStepDeps) daemon.Registry {
 		_, err := fetchstub.RetryFailures(ctx, deps.Crawler, fetchstub.RetryInput{VaultRoot: v})
 		return err
 	}
+	rotateLogsStep := func(ctx context.Context) error {
+		_, err := daemon.RotateProcessingLogs(v, time.Now(), 0)
+		return err
+	}
 	hydrateStubsStep := func(ctx context.Context) error {
 		_, err := fetchstub.HydrateStubs(ctx, deps.Crawler, fetchstub.HydrateInput{VaultRoot: v})
 		return err
@@ -147,6 +151,7 @@ func buildRegistry(deps daemonStepDeps) daemon.Registry {
 
 	return daemon.Registry{
 		Daily: []daemon.Step{
+			{Name: "rotate-logs", Fn: rotateLogsStep},
 			{Name: "retry-crawls", Fn: retryCrawls},
 			{Name: "summarize", Fn: summarizeStep},
 			{Name: "index", Fn: indexStep},
