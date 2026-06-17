@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"sea-noise/internal/ai/skill"
+	"sea-noise/internal/vault"
 )
 
 // DefaultAutoThreshold mirrors references/scripts/enrich-topics.py's
@@ -200,7 +200,7 @@ func EnrichTopicsAuto(ctx context.Context, exec *skill.Executor, crawler Crawler
 // skipped. A missing file is not an error.
 func ReadTopicFrequencies(vaultRoot string) ([]TopicEntry, error) {
 	path := filepath.Join(vaultRoot, TopicFreqRelPath)
-	raw, err := os.ReadFile(path)
+	raw, err := vault.ReadFileRetry(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil
@@ -275,7 +275,7 @@ func ReadTopicFrequencies(vaultRoot string) ([]TopicEntry, error) {
 // get_enriched_topics regex `^- (.+?) —`. Missing log is not an error.
 func ReadEnrichedTopics(vaultRoot string) (map[string]bool, error) {
 	path := filepath.Join(vaultRoot, logRelPath)
-	raw, err := os.ReadFile(path)
+	raw, err := vault.ReadFileRetry(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return map[string]bool{}, nil

@@ -23,6 +23,7 @@ import (
 
 	"sea-noise/internal/ai/skill"
 	"sea-noise/internal/markdown"
+	"sea-noise/internal/vault"
 )
 
 // Sentinel errors. Wrap with %w; check via errors.Is.
@@ -181,7 +182,7 @@ func collectNotesForTopic(vaultRoot, topic string) ([]matchedNote, error) {
 			return err
 		}
 		stem := strings.TrimSuffix(filepath.Base(path), ".md")
-		raw, err := os.ReadFile(path)
+		raw, err := vault.ReadFileRetry(path)
 		if err != nil {
 			return nil // skip unreadable, mirror prototype's try/except
 		}
@@ -341,7 +342,7 @@ func appendLog(vaultRoot, topic, briefRel string, today time.Time) (string, erro
 		return "", fmt.Errorf("%w: mkdir log: %v", ErrEnrich, err)
 	}
 	line := fmt.Sprintf("- %s — %s — %s\n", topic, today.Format("2006-01-02"), briefRel)
-	existing, err := os.ReadFile(abs)
+	existing, err := vault.ReadFileRetry(abs)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return "", fmt.Errorf("%w: read log: %v", ErrEnrich, err)

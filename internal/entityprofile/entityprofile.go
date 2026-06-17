@@ -130,7 +130,7 @@ func findMentions(vaultRoot, entity string) ([]Mention, error) {
 
 	out := make([]Mention, 0, len(notes))
 	for _, n := range notes {
-		full, err := os.ReadFile(filepath.Join(vaultRoot, n.Path))
+		full, err := vault.ReadFileRetry(filepath.Join(vaultRoot, n.Path))
 		if err != nil {
 			continue
 		}
@@ -271,7 +271,7 @@ func appendLog(vaultRoot, entity, profileRel string, today time.Time) (string, e
 	line := fmt.Sprintf("- %s — %s — %s\n", entity, date, profileRel)
 
 	var existing string
-	if b, err := os.ReadFile(full); err == nil {
+	if b, err := vault.ReadFileRetry(full); err == nil {
 		existing = string(b)
 	} else {
 		existing = "# Entity Profiles Log\n\n"

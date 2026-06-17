@@ -12,6 +12,7 @@ import (
 
 	"sea-noise/internal/ai/skill"
 	"sea-noise/internal/markdown"
+	"sea-noise/internal/vault"
 )
 
 // MaxNoteContentChars caps how much of the note body gets sent to
@@ -88,7 +89,7 @@ func BuildEnrichNoteInput(ctx context.Context, vaultRoot, notePath string, crawl
 	}
 	rel, _ := filepath.Rel(vaultRoot, abs)
 
-	raw, err := os.ReadFile(abs)
+	raw, err := vault.ReadFileRetry(abs)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return NoteCandidate{}, fmt.Errorf("%w: %s", ErrNoteNotFound, notePath)
@@ -174,7 +175,7 @@ func EnrichNote(ctx context.Context, exec *skill.Executor, crawler Crawler, in N
 	if !filepath.IsAbs(abs) {
 		abs = filepath.Join(in.VaultRoot, in.NotePath)
 	}
-	raw, err := os.ReadFile(abs)
+	raw, err := vault.ReadFileRetry(abs)
 	if err != nil {
 		return NoteResult{}, fmt.Errorf("enrichtopics: re-read %s: %w", abs, err)
 	}

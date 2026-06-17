@@ -28,6 +28,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"sea-noise/internal/vault"
 )
 
 // Pipeline names. The scheduler fires them on a Go timer; callers
@@ -294,7 +296,7 @@ func (s *Server) lookupPipeline(name string) ([]Step, string, error) {
 // still valid for the current period (same day for daily, same ISO
 // week for weekly).
 func (s *Server) markerActive(name, markerRel string, now time.Time) bool {
-	raw, err := os.ReadFile(filepath.Join(s.cfg.VaultRoot, markerRel))
+	raw, err := vault.ReadFileRetry(filepath.Join(s.cfg.VaultRoot, markerRel))
 	if errors.Is(err, fs.ErrNotExist) {
 		return false
 	}

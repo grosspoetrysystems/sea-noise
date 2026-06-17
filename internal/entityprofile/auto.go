@@ -15,6 +15,7 @@ import (
 
 	"sea-noise/internal/ai/skill"
 	"sea-noise/internal/markdown"
+	"sea-noise/internal/vault"
 )
 
 // DefaultAutoThreshold mirrors references/scripts/profile-entities.py's
@@ -389,7 +390,7 @@ func extractEntityCounts(vaultRoot string) (map[string]int, error) {
 		if info.IsDir() || !strings.HasSuffix(info.Name(), ".md") {
 			return nil
 		}
-		raw, rerr := os.ReadFile(path)
+		raw, rerr := vault.ReadFileRetry(path)
 		if rerr != nil {
 			return nil
 		}
@@ -461,7 +462,7 @@ func isFilteredEntity(name string) bool {
 // `^- (.+?) —` over the log's contents.
 func readProfilesLog(vaultRoot string) (map[string]bool, error) {
 	path := filepath.Join(vaultRoot, profilesLogRelPath)
-	raw, err := os.ReadFile(path)
+	raw, err := vault.ReadFileRetry(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return map[string]bool{}, nil

@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"syscall"
-	"time"
 
 	"sea-noise/internal/markdown"
+	"sea-noise/internal/vault"
 )
 
 // InboxKind summarises what the inbox pipeline's downstream steps
@@ -44,7 +43,7 @@ type InboxKind struct {
 // Returns InboxKind{FileNotFound: true} if the file genuinely doesn't
 // exist (not an iCloud delay).
 func ClassifyInbox(path string) (InboxKind, error) {
-	raw, err := readFileRetry(path)
+	raw, err := vault.ReadFileRetry(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return InboxKind{FileNotFound: true}, nil
@@ -73,29 +72,6 @@ func ClassifyInbox(path string) (InboxKind, error) {
 		kind.NeedsTranscript = true
 	}
 	return kind, nil
-}
-
-// readFileRetry wraps os.ReadFile with EDEADLK retry-with-backoff.
-// Mirrors internal/fetchstub's readFileWithRetry; lifted here so the
-// daemon classifier can use it without depending on fetchstub.
-func readFileRetry(path string) ([]byte, error) {
-	const (
-		maxAttempts = 20
-		backoff     = 250 * time.Millisecond
-	)
-	var lastErr error
-	for i := 0; i < maxAttempts; i++ {
-		raw, err := os.ReadFile(path)
-		if err == nil {
-			return raw, nil
-		}
-		lastErr = err
-		if !errors.Is(err, syscall.EDEADLK) {
-			return nil, err
-		}
-		time.Sleep(backoff)
-	}
-	return nil, lastErr
 }
 
 func hasTagValue(raw any, want string) bool {

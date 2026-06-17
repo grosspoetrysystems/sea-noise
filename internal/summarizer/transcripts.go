@@ -16,6 +16,7 @@ import (
 
 	"sea-noise/internal/ai/skill"
 	"sea-noise/internal/markdown"
+	"sea-noise/internal/vault"
 )
 
 const (
@@ -179,7 +180,7 @@ func WalkTranscriptCandidates(in EnrichTranscriptsInput) ([]TranscriptCandidate,
 func scanTranscriptCandidate(vaultRoot, path string) (TranscriptCandidate, bool, error) {
 	rel, _ := filepath.Rel(vaultRoot, path)
 
-	raw, err := os.ReadFile(path)
+	raw, err := vault.ReadFileRetry(path)
 	if err != nil {
 		return TranscriptCandidate{}, false, fmt.Errorf("read %s: %w", path, err)
 	}
@@ -253,7 +254,7 @@ type outcome struct {
 func enrichOne(ctx context.Context, exec *skill.Executor, vaultRoot, path string) (outcome, error) {
 	rel, _ := filepath.Rel(vaultRoot, path)
 
-	raw, err := os.ReadFile(path)
+	raw, err := vault.ReadFileRetry(path)
 	if err != nil {
 		return outcome{}, fmt.Errorf("read %s: %w", path, err)
 	}
