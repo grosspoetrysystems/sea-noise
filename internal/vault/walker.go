@@ -11,6 +11,7 @@
 package vault
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"path/filepath"
@@ -71,6 +72,10 @@ type Note struct {
 // Skips empty (whitespace-only) notes, matching the prototype's
 // "if not content_raw.strip(): continue" guard in indexer.py:main().
 func Walk(root string, excludeDirs []string) ([]Note, error) {
+	return WalkContext(context.Background(), root, excludeDirs)
+}
+
+func WalkContext(ctx context.Context, root string, excludeDirs []string) ([]Note, error) {
 	rootInfo, err := osStat(root)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -89,6 +94,9 @@ func Walk(root string, excludeDirs []string) ([]Note, error) {
 
 	var paths []string
 	err = osWalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		if err != nil {
 			return err
 		}
@@ -124,10 +132,12 @@ func Walk(root string, excludeDirs []string) ([]Note, error) {
 
 	notes := make([]Note, 0, len(paths))
 	for _, p := range paths {
-		content, err := osReadFile(p)
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		content, err := ReadFileRetryContext(ctx, p)
 		if err != nil {
-			// Match the prototype's lenient behavior: skip unreadable
-			// files. The capture script does the same.
+			// Preserve prototype parity: unreadable notes are skipped.
 			continue
 		}
 		if strings.TrimSpace(string(content)) == "" {

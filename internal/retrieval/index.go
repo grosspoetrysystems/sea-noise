@@ -40,7 +40,7 @@ func IndexVault(ctx context.Context, db *sql.DB, root string, excludeDirs []stri
 	if excludeDirs == nil {
 		excludeDirs = vault.IndexerExcludeDirs
 	}
-	notes, err := vault.Walk(root, excludeDirs)
+	notes, err := vault.WalkContext(ctx, root, excludeDirs)
 	if err != nil {
 		return IndexStats{}, fmt.Errorf("%w: walk: %v", ErrIndex, err)
 	}
@@ -148,7 +148,7 @@ func insertAll(ctx context.Context, tx *sql.Tx, root string, notes []vault.Note)
 
 	for _, n := range notes {
 		abs := filepath.Join(root, filepath.FromSlash(n.ID))
-		yfm, _ := markdown.ParseFrontmatterYAML(noteBytes(abs))
+		yfm, _ := markdown.ParseFrontmatterYAML(noteBytes(ctx, abs))
 
 		typeStr := stringField(yfm.Fields, "type")
 		fmJSON, err := json.Marshal(yfm.Fields)
@@ -268,8 +268,8 @@ func resolveLinks(ctx context.Context, tx *sql.Tx) error {
 // noteBytes reads a file's contents, returning "" on any error. Used for
 // yaml-parse of frontmatter inside the indexer — the vault.Walk pass has
 // already validated readability and non-emptiness.
-func noteBytes(abs string) string {
-	b, err := os.ReadFile(abs)
+func noteBytes(ctx context.Context, abs string) string {
+	b, err := vault.ReadFileRetryContext(ctx, abs)
 	if err != nil {
 		return ""
 	}

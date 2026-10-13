@@ -45,6 +45,25 @@ just a line
 	}
 }
 
+func TestHydrateStubs_UsesCloudflareMinimumDepth(t *testing.T) {
+	vault := t.TempDir()
+	writeNote(t, vault, "inbox/clip.md", `---
+source: https://example.com/post
+tags: [clippings]
+---
+
+x
+`)
+
+	crawler := &recordingCrawler{}
+	if _, err := fetchstub.HydrateStubs(context.Background(), crawler, fetchstub.HydrateInput{VaultRoot: vault}); err != nil {
+		t.Fatalf("HydrateStubs: %v", err)
+	}
+	if crawler.limit != 1 || crawler.depth != 1 {
+		t.Fatalf("Crawl arguments = limit %d, depth %d; want 1, 1", crawler.limit, crawler.depth)
+	}
+}
+
 func TestHydrateStubs_SkipsNonStub(t *testing.T) {
 	vault := t.TempDir()
 	// http source + clippings tag but body >= MinBodyChars.
@@ -130,7 +149,7 @@ tags: [clippings]
 x
 `)
 
-	crawler := fakeCrawler{} // empty → returns nil pages, treated as failure
+	crawler := failingCrawler{}
 	now := fixedNow()
 	res, err := fetchstub.HydrateStubs(context.Background(), crawler, fetchstub.HydrateInput{VaultRoot: vault, Now: now})
 	if err != nil {
@@ -147,6 +166,9 @@ x
 	if e.URL != "https://example.com/bad" {
 		t.Errorf("manifest URL = %q", e.URL)
 	}
+	if e.LastError != "nope" {
+		t.Errorf("LastError = %q, want wrapped crawl error", e.LastError)
+	}
 	if e.RetryCount != 0 {
 		t.Errorf("RetryCount = %d, want 0", e.RetryCount)
 	}
@@ -156,6 +178,49 @@ x
 	}
 	if e.Abandoned {
 		t.Errorf("entry marked Abandoned prematurely")
+	}
+}
+
+func TestHydrateStubs_ContextCancellationDoesNotRecordUntriedFailures(t *testing.T) {
+	vault := t.TempDir()
+	for _, name := range []string{"first.md", "second.md"} {
+		writeNote(t, vault, "inbox/"+name, `---
+source: https://example.com/`+name+`
+tags: [clippings]
+---
+
+x
+`)
+	}
+
+	started := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct {
+		result fetchstub.HydrateResult
+		err    error
+	})
+	go func() {
+		result, err := fetchstub.HydrateStubs(ctx, blockingCrawler{started: started}, fetchstub.HydrateInput{
+			VaultRoot: vault,
+			Now:       fixedNow(),
+		})
+		done <- struct {
+			result fetchstub.HydrateResult
+			err    error
+		}{result: result, err: err}
+	}()
+
+	<-started
+	cancel()
+	out := <-done
+	if !errors.Is(out.err, context.Canceled) {
+		t.Fatalf("HydrateStubs error = %v, want context canceled", out.err)
+	}
+	if len(out.result.Failed) != 0 {
+		t.Fatalf("Failed = %v, want no canceled or untried failures", out.result.Failed)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "_meta/crawl-failures.json")); !os.IsNotExist(err) {
+		t.Fatalf("manifest exists after cancellation, stat err = %v", err)
 	}
 }
 
@@ -171,13 +236,13 @@ x
 	now := fixedNow()
 	due := now.Add(-time.Hour).Format(time.RFC3339Nano)
 	writeManifest(t, vault, []fetchstub.ManifestEntry{{
-		URL:             "https://example.com/bad",
-		NotePath:        "inbox/clip.md",
-		ErrorType:       "crawl_failed",
-		RetryCount:      0,
-		NextRetryAfter:  due,
-		FirstFailure:    due,
-		LastAttempt:     due,
+		URL:            "https://example.com/bad",
+		NotePath:       "inbox/clip.md",
+		ErrorType:      "crawl_failed",
+		RetryCount:     0,
+		NextRetryAfter: due,
+		FirstFailure:   due,
+		LastAttempt:    due,
 	}})
 
 	crawler := fakeCrawler{"https://example.com/bad": "Now it worked."}
@@ -385,6 +450,27 @@ func sliceEqual(a, b []string) bool {
 
 func fixedNow() time.Time {
 	return time.Date(2026, 5, 26, 12, 0, 0, 0, time.UTC)
+}
+
+type blockingCrawler struct {
+	started chan<- struct{}
+}
+
+func (c blockingCrawler) Crawl(ctx context.Context, _ string, _, _ int) ([]crawl.Page, error) {
+	close(c.started)
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+type recordingCrawler struct {
+	limit int
+	depth int
+}
+
+func (c *recordingCrawler) Crawl(_ context.Context, url string, limit, depth int) ([]crawl.Page, error) {
+	c.limit = limit
+	c.depth = depth
+	return []crawl.Page{{URL: url, Markdown: "Crawled body"}}, nil
 }
 
 type fakeCrawler map[string]string

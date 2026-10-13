@@ -19,7 +19,7 @@ func TestRun_InvokesSkillWithVaultRoot(t *testing.T) {
 	mock.EnqueueResponses("Done. 3 notes promoted, 0 discarded, 2 new tags.")
 	exec := skill.NewExecutor(loadRealSkills(t), inferencerouter.NewLocalRouter(), mock)
 
-	res, err := inboxprocess.Run(context.Background(), exec, inboxprocess.Input{VaultRoot: vault})
+	res, err := inboxprocess.Run(context.Background(), exec, inboxprocess.Input{VaultRoot: vault, SkipPaths: "inbox/protected.md"})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -35,6 +35,9 @@ func TestRun_InvokesSkillWithVaultRoot(t *testing.T) {
 	}
 	if !strings.Contains(mock.Calls[0].Prompt, vault) {
 		t.Errorf("rendered prompt did not contain vault root %q:\n%s", vault, mock.Calls[0].Prompt)
+	}
+	if !strings.Contains(mock.Calls[0].Prompt, "inbox/protected.md") {
+		t.Errorf("rendered prompt omitted hydration-protected path:\n%s", mock.Calls[0].Prompt)
 	}
 }
 

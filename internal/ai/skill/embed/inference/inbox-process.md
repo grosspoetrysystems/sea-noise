@@ -5,6 +5,8 @@ kind: inference
 inputs:
   - name: vault_root
     required: true
+  - name: skip_paths
+    required: false
 outputs:
   format: report
 ---
@@ -15,7 +17,11 @@ You are processing the inbox/ folder of a personal knowledge vault rooted at:
 
 Read the vault's CLAUDE.md (or AGENTS.md) for the full tag taxonomy, content-type rules, and atlas/ conventions. This skill is the operational invocation of the "process my inbox" command described there. Follow the conventions verbatim.
 
-For each file in {{.VaultRoot}}/inbox/:
+For each file in {{.VaultRoot}}/inbox/ that is not listed below:
+
+Hydration-protected inbox paths (leave these files untouched; do not read, edit, move, or discard them):
+
+{{.SkipPaths}}
 
 1. **Triage by source type.** Web Clipper, Voice Capture, Ad Hoc Note, or Voice Todo — detect from frontmatter, source URL, and body shape. Apply the per-type rules from CLAUDE.md.
 

@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -85,6 +86,23 @@ var BackoffSchedule = []time.Duration{
 // MaxRetries equals len(BackoffSchedule).
 var MaxRetries = len(BackoffSchedule)
 
+const (
+	bulkReadTimeout  = 2 * time.Second
+	dedupReadTimeout = 25 * time.Millisecond
+)
+
+func readBulkFile(ctx context.Context, path string) ([]byte, error) {
+	fileCtx, cancel := context.WithTimeout(ctx, bulkReadTimeout)
+	defer cancel()
+	return vault.ReadFileRetryContext(fileCtx, path)
+}
+
+func readDedupFile(ctx context.Context, path string) ([]byte, error) {
+	fileCtx, cancel := context.WithTimeout(ctx, dedupReadTimeout)
+	defer cancel()
+	return vault.ReadFileRetryContext(fileCtx, path)
+}
+
 // HydrateInput configures a HydrateStubs run.
 type HydrateInput struct {
 	VaultRoot string
@@ -93,40 +111,41 @@ type HydrateInput struct {
 
 // HydrateResult reports counts. All paths are vault-relative.
 type HydrateResult struct {
-	Hydrated []string
-	Deduped  []string
-	Failed   []string
-	Skipped  []string // notes scanned that weren't stubs
+	Hydrated   []string
+	Deduped    []string
+	Failed     []string
+	Skipped    []string // notes scanned that weren't stubs
+	Unreadable []string // notes unavailable during this pass
 }
 
 // RetryInput configures a RetryFailures run.
 type RetryInput struct {
-	VaultRoot   string
-	Now         time.Time
-	SearchDirs  []string // override DefaultRetrySearchDirs
+	VaultRoot  string
+	Now        time.Time
+	SearchDirs []string // override DefaultRetrySearchDirs
 }
 
 // RetryResult reports counts.
 type RetryResult struct {
-	Retried    int
-	Succeeded  []string // vault-relative paths re-hydrated
+	Retried     int
+	Succeeded   []string // vault-relative paths re-hydrated
 	StillFailed int
-	Skipped    int // abandoned or not-yet-due
+	Skipped     int // abandoned or not-yet-due
 }
 
 // ManifestEntry is one row in _meta/crawl-failures.json. JSON
 // representation mirrors the prototype's field shape so a manifest
 // written by either runtime can be read by the other.
 type ManifestEntry struct {
-	URL             string `json:"url"`
-	NotePath        string `json:"note_path"`
-	ErrorType       string `json:"error_type"`
-	RetryCount      int    `json:"retry_count"`
-	FirstFailure    string `json:"first_failure"`
-	LastAttempt     string `json:"last_attempt"`
-	LastError       string `json:"last_error,omitempty"`
-	NextRetryAfter  string `json:"next_retry_after,omitempty"`
-	Abandoned       bool   `json:"abandoned"`
+	URL            string `json:"url"`
+	NotePath       string `json:"note_path"`
+	ErrorType      string `json:"error_type"`
+	RetryCount     int    `json:"retry_count"`
+	FirstFailure   string `json:"first_failure"`
+	LastAttempt    string `json:"last_attempt"`
+	LastError      string `json:"last_error,omitempty"`
+	NextRetryAfter string `json:"next_retry_after,omitempty"`
+	Abandoned      bool   `json:"abandoned"`
 }
 
 // HydrateStubs walks <vault>/inbox/, finds notes that are URL stubs
@@ -152,7 +171,7 @@ func HydrateStubs(ctx context.Context, crawler crawl.Crawler, in HydrateInput) (
 		return result, fmt.Errorf("fetchstub: read inbox: %w", err)
 	}
 
-	existingURLs, err := collectExistingURLs(in.VaultRoot, DefaultDedupDirs)
+	existingURLs, err := collectExistingURLs(ctx, in.VaultRoot, DefaultDedupDirs)
 	if err != nil {
 		return result, err
 	}
@@ -160,9 +179,13 @@ func HydrateStubs(ctx context.Context, crawler crawl.Crawler, in HydrateInput) (
 	paths := mdPaths(entries, inboxDir)
 	for _, p := range paths {
 		rel, _ := filepath.Rel(in.VaultRoot, p)
-		raw, err := vault.ReadFileRetry(p)
+		raw, err := readBulkFile(ctx, p)
 		if err != nil {
-			return result, fmt.Errorf("fetchstub: read %s: %w", p, err)
+			if ctx.Err() != nil {
+				return result, ctx.Err()
+			}
+			result.Unreadable = append(result.Unreadable, rel)
+			continue
 		}
 		content := string(raw)
 		fm, err := markdown.ParseFrontmatterYAML(content)
@@ -191,11 +214,27 @@ func HydrateStubs(ctx context.Context, crawler crawl.Crawler, in HydrateInput) (
 		}
 
 		markdownText, err := crawlOne(ctx, crawler, source)
-		if err != nil || markdownText == "" {
+		if err != nil {
+			if ctx.Err() != nil {
+				return result, ctx.Err()
+			}
 			if err := appendFailure(in.VaultRoot, ManifestEntry{
 				URL:       source,
 				NotePath:  rel,
 				ErrorType: "crawl_failed",
+				LastError: err.Error(),
+			}, now); err != nil {
+				return result, err
+			}
+			result.Failed = append(result.Failed, rel)
+			continue
+		}
+		if markdownText == "" {
+			if err := appendFailure(in.VaultRoot, ManifestEntry{
+				URL:       source,
+				NotePath:  rel,
+				ErrorType: "crawl_failed",
+				LastError: "crawler returned no markdown",
 			}, now); err != nil {
 				return result, err
 			}
@@ -265,7 +304,7 @@ func RetryFailures(ctx context.Context, crawler crawl.Crawler, in RetryInput) (R
 			// Content fetched but note vanished — drop manifest entry anyway.
 			continue
 		}
-		raw, err := vault.ReadFileRetry(notePath)
+		raw, err := vault.ReadFileRetryContext(ctx, notePath)
 		if err != nil {
 			return result, fmt.Errorf("fetchstub: read %s: %w", notePath, err)
 		}
@@ -286,7 +325,8 @@ func RetryFailures(ctx context.Context, crawler crawl.Crawler, in RetryInput) (R
 // --- crawl ---
 
 func crawlOne(ctx context.Context, crawler crawl.Crawler, url string) (string, error) {
-	pages, err := crawler.Crawl(ctx, url, 1, 0)
+	// Cloudflare now rejects the prototype's depth=0; depth=1 is its minimum.
+	pages, err := crawler.Crawl(ctx, url, 1, 1)
 	if err != nil {
 		return "", err
 	}
@@ -314,7 +354,35 @@ func normalizeURL(url string) string {
 	return url
 }
 
-func collectExistingURLs(vaultRoot string, dirs []string) (map[string]bool, error) {
+func isDatalessPlaceholder(info os.FileInfo) bool {
+	if info.Size() == 0 {
+		return false
+	}
+	v := reflect.ValueOf(info.Sys())
+	if !v.IsValid() {
+		return false
+	}
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return false
+		}
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return false
+	}
+	blocks := v.FieldByName("Blocks")
+	switch blocks.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return blocks.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return blocks.Uint() == 0
+	default:
+		return false
+	}
+}
+
+func collectExistingURLs(ctx context.Context, vaultRoot string, dirs []string) (map[string]bool, error) {
 	out := map[string]bool{}
 	for _, rel := range dirs {
 		dir := filepath.Join(vaultRoot, rel)
@@ -328,7 +396,10 @@ func collectExistingURLs(vaultRoot string, dirs []string) (map[string]bool, erro
 			if info.IsDir() || !strings.HasSuffix(info.Name(), ".md") {
 				return nil
 			}
-			raw, rerr := vault.ReadFileRetry(path)
+			if isDatalessPlaceholder(info) {
+				return nil
+			}
+			raw, rerr := readDedupFile(ctx, path)
 			if rerr != nil {
 				return nil
 			}
@@ -474,7 +545,11 @@ func appendFailure(vaultRoot string, e ManifestEntry, now time.Time) error {
 	}
 	for i, existing := range entries {
 		if existing.URL == e.URL {
-			entries[i] = advanceBackoff(existing, e.ErrorType, now)
+			updated := advanceBackoff(existing, e.ErrorType, now)
+			if e.LastError != "" {
+				updated.LastError = e.LastError
+			}
+			entries[i] = updated
 			return saveManifest(vaultRoot, entries)
 		}
 	}
@@ -482,7 +557,9 @@ func appendFailure(vaultRoot string, e ManifestEntry, now time.Time) error {
 	stamp := now.Format(time.RFC3339Nano)
 	e.FirstFailure = stamp
 	e.LastAttempt = stamp
-	e.LastError = e.ErrorType
+	if e.LastError == "" {
+		e.LastError = e.ErrorType
+	}
 	e.NextRetryAfter = now.Add(BackoffSchedule[0]).Format(time.RFC3339Nano)
 	entries = append(entries, e)
 	return saveManifest(vaultRoot, entries)

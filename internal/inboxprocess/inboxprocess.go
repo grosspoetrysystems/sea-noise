@@ -25,9 +25,11 @@ import (
 // .agents/shared/skills/inference/.
 const SkillName = "inbox-process"
 
-// Input configures a Run call.
+// Input configures a Run call. SkipPaths is a newline-separated list of
+// inbox-relative files that hydration could not safely materialize.
 type Input struct {
 	VaultRoot string
+	SkipPaths string
 }
 
 // Result captures the skill's report. ReportPath is unset for now —
@@ -37,15 +39,15 @@ type Result struct {
 	Report string
 }
 
-// inboxProcessInput is the data the inbox-process skill template expects.
 type inboxProcessInput struct {
 	VaultRoot string
+	SkipPaths string
 }
 
 // Run invokes the inbox-process skill with the configured vault root.
 // Returns the textual report the skill produced.
 func Run(ctx context.Context, exec *skill.Executor, in Input) (Result, error) {
-	report, err := exec.Execute(ctx, SkillName, inboxProcessInput{VaultRoot: in.VaultRoot})
+	report, err := exec.Execute(ctx, SkillName, inboxProcessInput{VaultRoot: in.VaultRoot, SkipPaths: in.SkipPaths})
 	if err != nil {
 		return Result{}, fmt.Errorf("inboxprocess: %w", err)
 	}

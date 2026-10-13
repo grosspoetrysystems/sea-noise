@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -101,6 +102,22 @@ func TestReadFileRetry_TimesOutAfterCeiling(t *testing.T) {
 	// sleep shouldn't push elapsed much past the ceiling.
 	if elapsed > 50*time.Millisecond {
 		t.Errorf("ran significantly past ceiling: %s", elapsed)
+	}
+}
+
+func TestReadFileRetryContext_CancelDuringBackoff(t *testing.T) {
+	withFakeReadFile(t, func(_ string) ([]byte, error) {
+		return nil, syscall.EDEADLK
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := readFileRetryWithContext(ctx, "/whatever", retryConfig{
+		initialBackoff: time.Second,
+		maxBackoff:     time.Second,
+		ceiling:        time.Minute,
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want context.Canceled", err)
 	}
 }
 

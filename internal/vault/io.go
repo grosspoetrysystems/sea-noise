@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -39,7 +40,12 @@ var (
 // etc. should use this instead of os.ReadFile when reading from a
 // path under the vault root.
 func ReadFileRetry(path string) ([]byte, error) {
-	return readFileRetryWith(path, defaultRetryConfig)
+	return ReadFileRetryContext(context.Background(), path)
+}
+
+// ReadFileRetryContext is ReadFileRetry with cancellation during retries.
+func ReadFileRetryContext(ctx context.Context, path string) ([]byte, error) {
+	return readFileRetryWithContext(ctx, path, defaultRetryConfig)
 }
 
 // retryConfig is exposed via the readFileRetryWith helper for tests
@@ -58,10 +64,17 @@ var defaultRetryConfig = retryConfig{
 }
 
 func readFileRetryWith(path string, cfg retryConfig) ([]byte, error) {
+	return readFileRetryWithContext(context.Background(), path, cfg)
+}
+
+func readFileRetryWithContext(ctx context.Context, path string, cfg retryConfig) ([]byte, error) {
 	backoff := cfg.initialBackoff
 	var elapsed time.Duration
 	var lastErr error
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		raw, err := osReadFile(path)
 		if err == nil {
 			return raw, nil
@@ -73,14 +86,18 @@ func readFileRetryWith(path string, cfg retryConfig) ([]byte, error) {
 		if elapsed >= cfg.ceiling {
 			return nil, fmt.Errorf("vault: read %s: iCloud materialization timeout after %s: %w", path, elapsed.Round(time.Second), lastErr)
 		}
-		// Cap remaining sleep so we don't overshoot the ceiling
-		// noticeably (matters when backoff has grown large).
 		remaining := cfg.ceiling - elapsed
 		sleep := backoff
 		if sleep > remaining {
 			sleep = remaining
 		}
-		time.Sleep(sleep)
+		timer := time.NewTimer(sleep)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
 		elapsed += sleep
 		backoff *= 2
 		if backoff > cfg.maxBackoff {
