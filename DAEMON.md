@@ -48,7 +48,10 @@ There is intentionally no `sea-noise schedule install` subcommand and no auto-ge
 
 ## Internal scheduler
 
-Two timed chains, both driven by Go time package primitives inside the daemon:
+- **Inbox** — fires every 30 minutes at minute `00` and `30`, plus
+  immediately on daemon startup when `inbox/` already contains notes.
+  Step order mirrors `references/docs/system-architecture.md`:
+  `hydrate-stubs → process-inbox → youtube-transcript`.
 
 - **Daily** — fires at the configured daily time (default 00:05 local). Step order mirrors `references/scripts/run-daily-catchup.sh`:
   `retry-crawls → summarize-transcripts → index → synthesis → sync-consumed → generate-signal → plunge → home → todoist-push → todoist-pull`

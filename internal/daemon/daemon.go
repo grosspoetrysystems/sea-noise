@@ -56,6 +56,8 @@ var (
 	// ErrUnknownPipeline is returned when RunPipeline gets a name it
 	// doesn't recognize.
 	ErrUnknownPipeline = errors.New("daemon: unknown pipeline")
+	// ErrPipelineIncomplete is returned when a step fails or is deferred.
+	ErrPipelineIncomplete = errors.New("daemon: pipeline incomplete")
 )
 
 // StepFn is the executable body of a Step. Receives a context for
@@ -131,10 +133,11 @@ type Server struct {
 	registry Registry
 	clock    Clock
 
-	mu      sync.Mutex
-	started bool
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
+	mu         sync.Mutex
+	pipelineMu sync.Mutex
+	started    bool
+	cancel     context.CancelFunc
+	wg         sync.WaitGroup
 }
 
 // New wires a Server with the supplied config + step registry.
@@ -211,11 +214,24 @@ func (s *Server) scheduleLoop(ctx context.Context) {
 // gated by the marker file.
 func (s *Server) maybeFire(ctx context.Context, now time.Time) {
 	if shouldFireDaily(now, s.cfg.DailyAt) {
-		_ = s.RunPipeline(ctx, PipelineDaily, now)
+		s.reportPipelineError(ctx, PipelineDaily, now)
 	}
 	if shouldFireWeekly(now, s.cfg.WeeklyDay, s.cfg.WeeklyAt) {
-		_ = s.RunPipeline(ctx, PipelineWeekly, now)
+		s.reportPipelineError(ctx, PipelineWeekly, now)
 	}
+	if shouldFireInbox(now) {
+		s.reportPipelineError(ctx, PipelineInbox, now)
+	}
+}
+
+func (s *Server) reportPipelineError(ctx context.Context, name string, now time.Time) {
+	if err := s.RunPipeline(ctx, name, now); err != nil && !errors.Is(err, ErrSkippedAlreadyRan) {
+		fmt.Printf("sea-noise %s pipeline: %v\n", name, err)
+	}
+}
+
+func shouldFireInbox(now time.Time) bool {
+	return now.Minute()%30 == 0
 }
 
 func shouldFireDaily(now, dailyAt time.Time) bool {
@@ -235,6 +251,10 @@ func (s *Server) RunPipeline(ctx context.Context, name string, now time.Time) er
 	if err != nil {
 		return err
 	}
+
+	s.pipelineMu.Lock()
+	defer s.pipelineMu.Unlock()
+
 	if marker != "" && s.markerActive(name, marker, now) {
 		return fmt.Errorf("%w: %s", ErrSkippedAlreadyRan, name)
 	}
@@ -253,20 +273,27 @@ func (s *Server) RunPipeline(ctx context.Context, name string, now time.Time) er
 		return nil
 	}
 
+	var incompleteErr error
 	for _, st := range steps {
 		start := s.clock.Now()
 		switch {
 		case st.Fn == nil:
 			fmt.Fprintf(logPath, "- %s — DEFERRED (no Go port yet)\n", st.Name)
 		default:
-			err := st.Fn(ctx)
+			stepErr := st.Fn(ctx)
 			elapsed := s.clock.Now().Sub(start)
 			status := "OK"
-			if err != nil {
-				status = fmt.Sprintf("FAILED (%v)", err)
+			if stepErr != nil {
+				status = fmt.Sprintf("FAILED (%v)", stepErr)
+				if incompleteErr == nil {
+					incompleteErr = fmt.Errorf("%w: %s: %v", ErrPipelineIncomplete, st.Name, stepErr)
+				}
 			}
 			fmt.Fprintf(logPath, "- %s — %s — %s (%s)\n", st.Name, start.Format("15:04:05"), elapsed.Round(time.Millisecond), status)
 		}
+	}
+	if incompleteErr != nil {
+		return incompleteErr
 	}
 
 	if marker != "" {

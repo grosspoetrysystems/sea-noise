@@ -53,6 +53,30 @@ other.key = "ignored"
 	}
 }
 
+func TestLoadVaultPath_ConfigFileSectionedTOML(t *testing.T) {
+	dir := t.TempDir()
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(`[vault]
+path = "`+vault+`"
+
+[daemon]
+poll_interval = "ignored"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	chdir(t, dir)
+	t.Setenv(EnvVar, "")
+
+	got, err := LoadVaultPath()
+	if err != nil {
+		t.Fatalf("LoadVaultPath() unexpected error: %v", err)
+	}
+	wantAbs, _ := filepath.Abs(vault)
+	if got != wantAbs {
+		t.Errorf("LoadVaultPath() = %q, want %q", got, wantAbs)
+	}
+}
+
 func TestLoadVaultPath_NothingConfigured(t *testing.T) {
 	dir := t.TempDir()
 	chdir(t, dir)

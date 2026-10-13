@@ -10,8 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"path/filepath"
-
 	"sea-noise/internal/ai/inferencerouter"
 	"sea-noise/internal/ai/skill"
 	"sea-noise/internal/ai/transport"
@@ -39,7 +37,7 @@ func runServe(args []string) error {
 	cliArgsList := fs.String("cli-args", "-p,{PROMPT},--dangerously-skip-permissions", "comma-separated argv template; {PROMPT} substituted")
 	timeoutSec := fs.Int("timeout", 1800, "per-inference-call timeout in seconds")
 	dryRun := fs.Bool("dry-run", false, "log every step that would run without executing any side effects")
-	indexDB := fs.String("index-db", "", "SQLite path for the retrieval index (default <vault>/_meta/retrieval.db)")
+	indexDB := fs.String("index-db", "", "SQLite path for the retrieval index (default ~/.sea-noise/retrieval.db)")
 	socket := fs.String("socket", "", "Unix-socket path for the JSON-RPC IPC surface (default $SEA_NOISE_SOCKET or ~/.sea-noise/daemon.sock). Empty disables IPC.")
 	noIPC := fs.Bool("no-ipc", false, "disable the IPC listener entirely")
 	noWatch := fs.Bool("no-watch", false, "disable the fsnotify vault watcher entirely")
@@ -142,11 +140,7 @@ func startIPC(ctx context.Context, flagPath string, srv *daemon.Server, deps dae
 	if err := ipc.ValidateSocketPath(socketPath); err != nil {
 		return nil, err
 	}
-	indexDBPath := deps.IndexDBPath
-	if indexDBPath == "" {
-		indexDBPath = filepath.Join(deps.VaultRoot, "_meta", "retrieval.db")
-	}
-	handler := newIPCHandler(srv, deps.Exec, deps.VaultRoot, indexDBPath, dryRun)
+	handler := newIPCHandler(srv, deps.Exec, deps.VaultRoot, deps.IndexDBPath, dryRun)
 	ipcSrv := ipc.New(socketPath, handler)
 	if err := ipcSrv.Start(ctx); err != nil {
 		return nil, fmt.Errorf("ipc start: %w", err)
@@ -169,6 +163,13 @@ func buildDaemonDeps(cliCommand, cliArgsList, skillsDir string, timeoutSec int, 
 		VaultRoot:   vaultRoot,
 		IndexDBPath: indexDB,
 		Crawler:     crawl.NewCrawlerFromEnv(),
+	}
+	if deps.IndexDBPath == "" {
+		p, err := defaultIndexDBPath()
+		if err != nil {
+			return daemonStepDeps{}, fmt.Errorf("default index db path: %w", err)
+		}
+		deps.IndexDBPath = p
 	}
 
 	if cliCommand != "" {

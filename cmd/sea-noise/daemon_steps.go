@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -33,7 +34,7 @@ import (
 // matching daemon.Step then has a nil Fn and is logged as deferred.
 type daemonStepDeps struct {
 	VaultRoot     string
-	IndexDBPath   string // default: <vault>/_meta/retrieval.db
+	IndexDBPath   string // default: ~/.sea-noise/retrieval.db
 	Exec          *skill.Executor
 	Crawler       crawl.Crawler
 	TodoistClient *todoist.Client
@@ -49,8 +50,14 @@ type daemonStepDeps struct {
 func buildRegistry(deps daemonStepDeps) daemon.Registry {
 	v := deps.VaultRoot
 	if deps.IndexDBPath == "" {
-		deps.IndexDBPath = filepath.Join(v, "_meta", "retrieval.db")
+		if p, err := defaultIndexDBPath(); err == nil {
+			deps.IndexDBPath = p
+		} else {
+			deps.IndexDBPath = filepath.Join(v, "_meta", "retrieval.db")
+		}
 	}
+	hydrationReady := true
+	hydrationSkipPaths := ""
 
 	retryCrawls := func(ctx context.Context) error {
 		_, err := fetchstub.RetryFailures(ctx, deps.Crawler, fetchstub.RetryInput{VaultRoot: v})
@@ -61,9 +68,21 @@ func buildRegistry(deps daemonStepDeps) daemon.Registry {
 		return err
 	}
 	hydrateStubsStep := func(ctx context.Context) error {
-		_, err := fetchstub.HydrateStubs(ctx, deps.Crawler, fetchstub.HydrateInput{VaultRoot: v})
-		return err
+		hydrationReady = false
+		hydrationSkipPaths = ""
+		// Do not triage unhydrated web clips; a missing body can look like
+		// low-signal content and get discarded.
+		hydrateCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		result, err := fetchstub.HydrateStubs(hydrateCtx, deps.Crawler, fetchstub.HydrateInput{VaultRoot: v})
+		hydrationSkipPaths = strings.Join(append(result.Failed, result.Unreadable...), "\n")
+		if err != nil {
+			return err
+		}
+		hydrationReady = true
+		return nil
 	}
+
 	indexStep := func(ctx context.Context) error {
 		if err := os.MkdirAll(filepath.Dir(deps.IndexDBPath), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(deps.IndexDBPath), err)
@@ -137,10 +156,13 @@ func buildRegistry(deps daemonStepDeps) daemon.Registry {
 		return err
 	}
 	processInboxStep := func(ctx context.Context) error {
+		if !hydrationReady {
+			return errors.New("daemon: process-inbox skipped until hydrate-stubs succeeds")
+		}
 		if deps.Exec == nil {
 			return errors.New("daemon: process-inbox requires --cli-command")
 		}
-		_, err := inboxprocess.Run(ctx, deps.Exec, inboxprocess.Input{VaultRoot: v})
+		_, err := inboxprocess.Run(ctx, deps.Exec, inboxprocess.Input{VaultRoot: v, SkipPaths: hydrationSkipPaths})
 		return err
 	}
 	youtubeTranscriptStep := func(ctx context.Context) error {

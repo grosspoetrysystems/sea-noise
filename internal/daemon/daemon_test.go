@@ -109,7 +109,7 @@ func TestRunPipeline_DryRunSkipsStepFns(t *testing.T) {
 	}
 }
 
-func TestRunPipeline_DeferredStepLogsButDoesNotFail(t *testing.T) {
+func TestRunPipeline_DeferredStepLogsAndWritesMarker(t *testing.T) {
 	vault := t.TempDir()
 	reg := daemon.Registry{Daily: []daemon.Step{
 		{Name: "shipped", Fn: func(ctx context.Context) error { return nil }},
@@ -119,12 +119,26 @@ func TestRunPipeline_DeferredStepLogsButDoesNotFail(t *testing.T) {
 	if err := srv.RunPipeline(context.Background(), daemon.PipelineDaily, fixedNow()); err != nil {
 		t.Fatalf("RunPipeline: %v", err)
 	}
+	if _, err := os.Stat(filepath.Join(vault, "_meta/.daily-last-run")); err != nil {
+		t.Fatalf("marker missing after deferred step: %v", err)
+	}
 	log := readDayLog(t, vault, fixedNow())
 	if !strings.Contains(log, "not-yet-ported — DEFERRED") {
 		t.Errorf("missing deferred line:\n%s", log)
 	}
-	if !strings.Contains(log, "shipped") {
-		t.Errorf("missing shipped step:\n%s", log)
+}
+
+func TestRunPipeline_FailedStepDoesNotWriteMarker(t *testing.T) {
+	vault := t.TempDir()
+	reg := daemon.Registry{Daily: []daemon.Step{
+		{Name: "boom", Fn: func(ctx context.Context) error { return errors.New("kaboom") }},
+	}}
+	srv := daemon.New(daemon.Config{VaultRoot: vault}, reg)
+	if err := srv.RunPipeline(context.Background(), daemon.PipelineDaily, fixedNow()); !errors.Is(err, daemon.ErrPipelineIncomplete) {
+		t.Fatalf("RunPipeline error = %v, want ErrPipelineIncomplete", err)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "_meta/.daily-last-run")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("marker exists after failed step: %v", err)
 	}
 }
 
@@ -136,8 +150,8 @@ func TestRunPipeline_FailedStepRecordedInLog(t *testing.T) {
 		{Name: "after", Fn: func(ctx context.Context) error { return nil }},
 	}}
 	srv := daemon.New(daemon.Config{VaultRoot: vault}, reg)
-	if err := srv.RunPipeline(context.Background(), daemon.PipelineDaily, fixedNow()); err != nil {
-		t.Fatalf("RunPipeline: %v", err)
+	if err := srv.RunPipeline(context.Background(), daemon.PipelineDaily, fixedNow()); err == nil {
+		t.Fatal("RunPipeline returned nil after failed step")
 	}
 	log := readDayLog(t, vault, fixedNow())
 	if !strings.Contains(log, "boom") || !strings.Contains(log, "FAILED") || !strings.Contains(log, "kaboom") {
@@ -152,7 +166,7 @@ func TestRunPipeline_UnknownNameReturnsSentinel(t *testing.T) {
 	srv := daemon.New(daemon.Config{VaultRoot: t.TempDir()}, daemon.Registry{})
 	err := srv.RunPipeline(context.Background(), "totally-not-a-pipeline", fixedNow())
 	if !errors.Is(err, daemon.ErrUnknownPipeline) {
-		t.Errorf("err = %v, want ErrUnknownPipeline", err)
+		t.Errorf("err = %v, want errors.Is(err, ErrUnknownPipeline)", err)
 	}
 }
 
@@ -169,7 +183,6 @@ func TestStartStop_IsClean(t *testing.T) {
 	if err := srv.Stop(); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
-	// Stop is idempotent.
 	if err := srv.Stop(); err != nil {
 		t.Errorf("second Stop returned %v, want nil", err)
 	}

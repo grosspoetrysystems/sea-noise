@@ -23,7 +23,7 @@ func runRun(args []string) error {
 	cliArgsList := fs.String("cli-args", "-p,{PROMPT},--dangerously-skip-permissions", "comma-separated argv template; {PROMPT} substituted")
 	timeoutSec := fs.Int("timeout", 1800, "per-inference-call timeout in seconds")
 	dryRun := fs.Bool("dry-run", false, "log every step that would run without executing any side effects")
-	indexDB := fs.String("index-db", "", "SQLite path for the retrieval index (default <vault>/_meta/retrieval.db)")
+	indexDB := fs.String("index-db", "", "SQLite path for the retrieval index (default ~/.sea-noise/retrieval.db)")
 	force := fs.Bool("force", false, "ignore marker file and re-run even if the period already had a successful run")
 	if err := fs.Parse(args); err != nil {
 		return err

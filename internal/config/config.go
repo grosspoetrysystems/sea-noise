@@ -65,8 +65,15 @@ func LoadVaultPath() (string, error) {
 // ("", nil) if the file does not exist. Returns ("", error) on read or
 // parse errors.
 //
-// The reader honors a small TOML subset: it looks for a line of the form
-//   vault.path = "..."
+// The reader honors a small TOML subset: it looks for either
+//
+//	vault.path = "..."
+//
+// or the documented section form:
+//
+//	[vault]
+//	path = "..."
+//
 // (with optional surrounding whitespace, optional inline comment after
 // the value). Anything else is ignored. A full TOML parser is not in
 // scope at this scaffold wave; subsequent waves can swap this for a
@@ -82,19 +89,23 @@ func readVaultPathFromFile(name string) (string, error) {
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
+	section := ""
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = strings.TrimSpace(line[1 : len(line)-1])
 			continue
 		}
 		key, value, ok := splitKeyValue(line)
 		if !ok {
 			continue
 		}
-		if key != "vault.path" {
-			continue
+		if (section == "vault" && key == "path") || key == "vault.path" {
+			return value, nil
 		}
-		return value, nil
 	}
 	if err := scanner.Err(); err != nil {
 		return "", fmt.Errorf("read %s: %w", name, err)
