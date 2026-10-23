@@ -126,4 +126,3 @@ func FilterInboxSteps(allSteps []Step, kind InboxKind) []Step {
 	}
 	return out
 }
-

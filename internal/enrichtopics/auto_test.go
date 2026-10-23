@@ -327,4 +327,3 @@ func newTestExecutor(t *testing.T, response string) *skill.Executor {
 	mock.EnqueueResponses(response, response, response, response, response)
 	return skill.NewExecutor(skills, inferencerouter.NewLocalRouter(), mock)
 }
-

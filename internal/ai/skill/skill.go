@@ -61,11 +61,11 @@ type Skill struct {
 
 // Input is one declared input parameter for a skill.
 type Input struct {
-	Name        string
-	Required    bool
-	MaxChars    int      // 0 = no limit
-	Enum        []string // empty = no constraint
-	Default     string   // applied when input is absent and not required
+	Name     string
+	Required bool
+	MaxChars int      // 0 = no limit
+	Enum     []string // empty = no constraint
+	Default  string   // applied when input is absent and not required
 }
 
 // Outputs describes the skill's expected output shape. Currently

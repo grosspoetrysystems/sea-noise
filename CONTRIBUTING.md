@@ -76,6 +76,20 @@ Sea Noise independently reruns relevant checks. Contributor and agent reports ar
 
 Changes to workflows, security, authentication, dependencies, release machinery, contribution policy, or agent instructions require the owners named in `.github/CODEOWNERS`.
 
+## Local development
+
+Sea Noise uses Go 1.26+, `golangci-lint` v2, and Lefthook. Install the tools, then initialize the hooks:
+
+```sh
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+go install github.com/evilmartians/lefthook@v2.2.2
+lefthook install
+```
+
+Run `./scripts/ci.sh` before opening a pull request. It includes build, tests, architectural gates, and hook tests. Use `./scripts/lint.sh` for the full lint report; existing findings are not CI-blocking in this substrate pass.
+
+Air is intentionally omitted; `serve` is a resident daemon, not a hot-reload web server.
+
 ## Legal
 
 Sea Noise uses [Developer Certificate of Origin 1.1](https://developercertificate.org/). Sign off every commit:

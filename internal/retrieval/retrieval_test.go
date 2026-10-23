@@ -313,8 +313,8 @@ func TestFTSSearch_NoteTypeFilter(t *testing.T) {
 
 func TestFTSSearch_MtimeWindow(t *testing.T) {
 	root := writeVault(t, map[string]string{
-		"old.md":   "---\ntitle: Old\n---\nquick brown fox\n",
-		"new.md":   "---\ntitle: New\n---\nquick brown fox\n",
+		"old.md":    "---\ntitle: Old\n---\nquick brown fox\n",
+		"new.md":    "---\ntitle: New\n---\nquick brown fox\n",
 		"recent.md": "---\ntitle: Recent\n---\nquick brown fox\n",
 	})
 	// Pin deterministic mtimes. Using fixed dates from time.Date for hermeticity.

@@ -501,7 +501,7 @@ func filterItems(in []item, keep func(item) bool) []item {
 
 // formatItem renders one queue line:
 //
-//	- [ ] [[<stem>|<title>]] (~<minutes> min) `t1` `t2` `t3` — [source](<url>)
+//   - [ ] [[<stem>|<title>]] (~<minutes> min) `t1` `t2` `t3` — [source](<url>)
 func formatItem(it item) string {
 	stem := strings.TrimSuffix(filepath.Base(it.relPath), ".md")
 	var b strings.Builder

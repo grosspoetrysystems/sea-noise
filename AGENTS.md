@@ -48,6 +48,7 @@ Empty output = no rules matched. JSON with `additionalContext` = those rules wil
 ./scripts/build.sh          # CGO_ENABLED=0 go build ./...
 ./scripts/test.sh           # go test ./...
 ./scripts/grep-gates.sh     # architectural invariants (no model literals, no Python, no MCP, embedded-skill mirror in sync)
+./scripts/lint.sh           # optional full golangci-lint report
 ./scripts/sync-skills.sh    # mirror inference skills into the go:embed target after editing them
 node --test .agents/shared/hooks/*.test.mjs .claude/shared/hooks/*.test.mjs   # rule-injector tests
 ```

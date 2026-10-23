@@ -69,9 +69,9 @@ func TestWalk_TitleFallbacks(t *testing.T) {
 	}
 
 	want := map[string]string{
-		"frontmatter-title.md":   "From FM",
-		"heading-title.md":       "From Heading",
-		"stem-fallback-name.md":  "stem fallback name",
+		"frontmatter-title.md":  "From FM",
+		"heading-title.md":      "From Heading",
+		"stem-fallback-name.md": "stem fallback name",
 	}
 	for _, n := range notes {
 		if got := n.Title; got != want[n.ID] {

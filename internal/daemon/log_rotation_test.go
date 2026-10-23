@@ -55,8 +55,8 @@ func TestRotateProcessingLogs_LeavesNonMatchingFilesAlone(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Date(2026, 6, 10, 12, 0, 0, 0, time.UTC)
 
-	mustWriteLog(t, dir, "2026-06-01.md") // old, should delete
-	mustWriteLog(t, dir, "notes.md")      // not date-shaped, leave
+	mustWriteLog(t, dir, "2026-06-01.md")  // old, should delete
+	mustWriteLog(t, dir, "notes.md")       // not date-shaped, leave
 	mustWriteLog(t, dir, "2026-06-01.txt") // wrong extension, leave
 	mustWriteLog(t, dir, "2026-13-99.md")  // invalid date, leave
 

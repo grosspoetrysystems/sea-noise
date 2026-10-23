@@ -135,9 +135,9 @@ func TestBuild_BucketingByContentType(t *testing.T) {
 	}
 
 	mustContain := map[string]string{
-		"## Deep Reads":         "Essay",
-		"## Listen / Watch":     "YT",
-		"## Tools & Reference":  "Manual",
+		"## Deep Reads":        "Essay",
+		"## Listen / Watch":    "YT",
+		"## Tools & Reference": "Manual",
 	}
 	for section, item := range mustContain {
 		idx := strings.Index(body, section)

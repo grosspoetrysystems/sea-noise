@@ -31,6 +31,9 @@ vendor/
 dist/
 bin/
 
+# Local development output
+tmp/
+
 # IDE / editor
 .vscode/
 .idea/

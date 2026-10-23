@@ -20,10 +20,10 @@ type ClassificationTier int
 
 const (
 	TierUnspecified ClassificationTier = iota
-	TierSimple                          // small lookups, classifications, format-mapping
-	TierMedium                          // single-turn synthesis, summarization
-	TierComplex                         // multi-step reasoning, longer context assembly
-	TierReasoning                       // deep step-by-step inference
+	TierSimple                         // small lookups, classifications, format-mapping
+	TierMedium                         // single-turn synthesis, summarization
+	TierComplex                        // multi-step reasoning, longer context assembly
+	TierReasoning                      // deep step-by-step inference
 )
 
 // RoutingProfile expresses the user's cost/quality preference for a
@@ -32,10 +32,10 @@ type RoutingProfile int
 
 const (
 	ProfileUnspecified RoutingProfile = iota
-	ProfileAuto                        // router decides
-	ProfileEco                         // prefer cheaper/faster models
-	ProfilePremium                     // prefer higher-quality models
-	ProfileFree                        // use only no-cost models
+	ProfileAuto                       // router decides
+	ProfileEco                        // prefer cheaper/faster models
+	ProfilePremium                    // prefer higher-quality models
+	ProfileFree                       // use only no-cost models
 )
 
 // LocalTarget is the abstract model class the router resolves to. The
@@ -45,9 +45,9 @@ type LocalTarget int
 
 const (
 	TargetUnspecified LocalTarget = iota
-	TargetFast                     // small, fast model
-	TargetSmart                    // mid-tier, balanced
-	TargetHeavy                    // largest available
+	TargetFast                    // small, fast model
+	TargetSmart                   // mid-tier, balanced
+	TargetHeavy                   // largest available
 )
 
 // InferenceRequest is what a caller passes to Router.Route. Fields are

@@ -307,7 +307,7 @@ type todoistServer struct {
 	requests []todoist.CreateTaskRequest
 }
 
-func (s *todoistServer) Close()   { s.Server.Close() }
+func (s *todoistServer) Close()      { s.Server.Close() }
 func (s *todoistServer) URL() string { return s.Server.URL }
 func (s *todoistServer) CallCount() int {
 	s.mu.Lock()

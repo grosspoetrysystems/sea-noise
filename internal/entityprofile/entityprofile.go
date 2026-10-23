@@ -186,8 +186,8 @@ func extractContextSentences(body string, pattern *regexp.Regexp, maxSentences i
 // formatMentions formats the mentions list for the prompt template
 // per the prototype's shape:
 //
-//	- **<title>** (<path>)
-//	  Context: <s1> | <s2>
+//   - **<title>** (<path>)
+//     Context: <s1> | <s2>
 func formatMentions(mentions []Mention) string {
 	var sb strings.Builder
 	for i, m := range mentions {

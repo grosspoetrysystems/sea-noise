@@ -99,4 +99,3 @@ func TestEnrichNote_ParityWithPrototype(t *testing.T) {
 		t.Errorf("Go post-state diverges from recorded prototype post-state:\n%s", b.String())
 	}
 }
-

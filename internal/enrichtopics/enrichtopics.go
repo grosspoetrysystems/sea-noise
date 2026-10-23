@@ -286,7 +286,7 @@ func assembleWebSection(ctx context.Context, crawler Crawler, notes []matchedNot
 
 // formatNotesSummary renders the notes list in the prototype's shape:
 //
-//	- <title> (<path>): <excerpt[:200]>...
+//   - <title> (<path>): <excerpt[:200]>...
 func formatNotesSummary(notes []matchedNote) string {
 	var sb strings.Builder
 	for i, n := range notes {
