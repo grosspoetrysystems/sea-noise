@@ -9,37 +9,45 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"sea-noise/internal/config"
 	"sea-noise/internal/retrieval"
 )
 
-// runSearch implements `sea-noise search --db PATH QUERY...`.
+// runSearch implements `sea-noise search [--db PATH] QUERY...`.
 //
 // Runs FTS5 retrieval against the SQLite index built by `sea-noise index`
 // and prints ranked hits in the form:
 //
-//   <score>  <note-id>  <snippet>
+//	<score>  <note-id>  <snippet>
 //
 // One line per hit. Snippet is FTS5's snippet() output around the matched
 // terms with «…» as the highlight delimiters.
 func runSearch(args []string) error {
 	fs := flag.NewFlagSet("search", flag.ContinueOnError)
-	dbPath := fs.String("db", "", "path to the SQLite index file (built by `sea-noise index`)")
+	dbPath := fs.String("db", "", "path to the SQLite index file (defaults to ~/.sea-noise/retrieval.db)")
 	limit := fs.Int("limit", 20, "max hits to return")
 	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), `Usage: sea-noise search --db PATH QUERY...
+		fmt.Fprintln(fs.Output(), `Usage: sea-noise search [--db PATH] QUERY...
 
 Run FTS5 keyword search against a previously-built retrieval index.
 
 Flags:
-  --db PATH      path to the SQLite index file (required)
+  --db PATH      path to the SQLite index file (defaults to ~/.sea-noise/retrieval.db)
   --limit N      max hits to return (default 20)`)
 	}
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *dbPath == "" {
-		fs.Usage()
-		return fmt.Errorf("--db is required")
+	resolvedDBPath := *dbPath
+	if resolvedDBPath == "" {
+		vaultRoot, err := config.LoadVaultPath()
+		if err != nil {
+			return err
+		}
+		resolvedDBPath, err = resolveIndexDBPath(vaultRoot, "")
+		if err != nil {
+			return err
+		}
 	}
 	query := strings.Join(fs.Args(), " ")
 	if strings.TrimSpace(query) == "" {
@@ -47,9 +55,9 @@ Flags:
 		return fmt.Errorf("query is required")
 	}
 
-	db, err := sql.Open("sqlite", *dbPath)
+	db, err := sql.Open("sqlite", resolvedDBPath)
 	if err != nil {
-		return fmt.Errorf("open db %s: %w", *dbPath, err)
+		return fmt.Errorf("open db %s: %w", resolvedDBPath, err)
 	}
 	defer db.Close()
 

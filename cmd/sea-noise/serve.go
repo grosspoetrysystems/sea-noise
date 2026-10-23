@@ -159,17 +159,14 @@ func buildDaemonDeps(cliCommand, cliArgsList, skillsDir string, timeoutSec int, 
 		return daemonStepDeps{}, err
 	}
 
+	resolvedIndexDBPath, err := resolveIndexDBPath(vaultRoot, indexDB)
+	if err != nil {
+		return daemonStepDeps{}, fmt.Errorf("resolve index db path: %w", err)
+	}
 	deps := daemonStepDeps{
 		VaultRoot:   vaultRoot,
-		IndexDBPath: indexDB,
+		IndexDBPath: resolvedIndexDBPath,
 		Crawler:     crawl.NewCrawlerFromEnv(),
-	}
-	if deps.IndexDBPath == "" {
-		p, err := defaultIndexDBPath()
-		if err != nil {
-			return daemonStepDeps{}, fmt.Errorf("default index db path: %w", err)
-		}
-		deps.IndexDBPath = p
 	}
 
 	if cliCommand != "" {

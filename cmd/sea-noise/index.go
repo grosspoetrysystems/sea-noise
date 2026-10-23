@@ -14,42 +14,42 @@ import (
 	"sea-noise/internal/retrieval"
 )
 
-// runIndex implements `sea-noise index --db PATH`.
+// runIndex implements `sea-noise index [--db PATH]`.
 //
 // Rebuilds the SQLite retrieval index for the configured vault. The index
 // is wiped and repopulated in a single transaction; existing readers
 // (none today) would see the prior state until commit.
 func runIndex(args []string) error {
 	fs := flag.NewFlagSet("index", flag.ContinueOnError)
-	dbPath := fs.String("db", "", "path to the SQLite index file (will be created if absent)")
+	dbPath := fs.String("db", "", "path to the SQLite index file (defaults to ~/.sea-noise/retrieval.db)")
 	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), `Usage: sea-noise index --db PATH
+		fmt.Fprintln(fs.Output(), `Usage: sea-noise index [--db PATH]
 
 Rebuild the SQLite retrieval index for the configured vault.
 
 Flags:
-  --db PATH    where to write the SQLite index file (required)`)
+  --db PATH    where to write the SQLite index file (defaults to ~/.sea-noise/retrieval.db)`)
 	}
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *dbPath == "" {
-		fs.Usage()
-		return fmt.Errorf("--db is required")
-	}
-
 	vaultRoot, err := config.LoadVaultPath()
 	if err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(*dbPath), 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", filepath.Dir(*dbPath), err)
+	resolvedDBPath, err := resolveIndexDBPath(vaultRoot, *dbPath)
+	if err != nil {
+		return err
 	}
 
-	db, err := sql.Open("sqlite", *dbPath)
+	if err := os.MkdirAll(filepath.Dir(resolvedDBPath), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(resolvedDBPath), err)
+	}
+
+	db, err := sql.Open("sqlite", resolvedDBPath)
 	if err != nil {
-		return fmt.Errorf("open db %s: %w", *dbPath, err)
+		return fmt.Errorf("open db %s: %w", resolvedDBPath, err)
 	}
 	defer db.Close()
 
@@ -64,6 +64,6 @@ Flags:
 	}
 
 	fmt.Printf("Indexed %d notes, %d chunks, %d tags, %d links, %d timestamps → %s\n",
-		stats.Notes, stats.Chunks, stats.Tags, stats.Links, stats.Timestamps, *dbPath)
+		stats.Notes, stats.Chunks, stats.Tags, stats.Links, stats.Timestamps, resolvedDBPath)
 	return nil
 }

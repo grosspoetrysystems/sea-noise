@@ -91,7 +91,7 @@ const (
 	dedupReadTimeout = 25 * time.Millisecond
 )
 
-func readBulkFile(ctx context.Context, path string) ([]byte, error) {
+var readBulkFile = func(ctx context.Context, path string) ([]byte, error) {
 	fileCtx, cancel := context.WithTimeout(ctx, bulkReadTimeout)
 	defer cancel()
 	return vault.ReadFileRetryContext(fileCtx, path)

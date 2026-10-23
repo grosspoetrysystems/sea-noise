@@ -123,8 +123,8 @@ Subcommands:
   audit-links              scan vault for broken [[wikilinks]], write report to _meta/broken-links.md
   summarize-transcripts    enrich notes containing ## Transcript with a ## Research Context section via the configured inference CLI
   profile-entities         generate an entity profile from vault mentions; manual mode only (auto-mode is a follow-up port)
-  index                    rebuild the SQLite retrieval index for the configured vault (--db PATH)
-  search                   run FTS5 keyword search against the index (--db PATH QUERY...)
+  index                    rebuild the SQLite retrieval index for the configured vault (--db PATH, optional; defaults to ~/.sea-noise/retrieval.db)
+  search                   run FTS5 keyword search against the index (defaults to ~/.sea-noise/retrieval.db)
   generate-signal          assemble the rolling signal queue from unconsumed notes, write to signal/queue.md
   enrich-topics            write a research brief for a topic cluster; uses Cloudflare /crawl when CF_ACCOUNT_ID + CF_API_TOKEN are set, vault-only otherwise
   youtube                  hydrate notes whose source: frontmatter points at YouTube with a ## Transcript section

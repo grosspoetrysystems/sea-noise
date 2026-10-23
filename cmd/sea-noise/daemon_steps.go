@@ -49,12 +49,9 @@ type daemonStepDeps struct {
 // has not configured every collaborator yet.
 func buildRegistry(deps daemonStepDeps) daemon.Registry {
 	v := deps.VaultRoot
+	var indexDBPathErr error
 	if deps.IndexDBPath == "" {
-		if p, err := defaultIndexDBPath(); err == nil {
-			deps.IndexDBPath = p
-		} else {
-			deps.IndexDBPath = filepath.Join(v, "_meta", "retrieval.db")
-		}
+		deps.IndexDBPath, indexDBPathErr = resolveIndexDBPath(v, "")
 	}
 	hydrationReady := true
 	hydrationSkipPaths := ""
@@ -84,6 +81,9 @@ func buildRegistry(deps daemonStepDeps) daemon.Registry {
 	}
 
 	indexStep := func(ctx context.Context) error {
+		if indexDBPathErr != nil {
+			return indexDBPathErr
+		}
 		if err := os.MkdirAll(filepath.Dir(deps.IndexDBPath), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(deps.IndexDBPath), err)
 		}
