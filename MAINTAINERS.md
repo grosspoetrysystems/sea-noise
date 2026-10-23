@@ -5,7 +5,7 @@ Sea Noise adopts Helicopter's contribution controls. The repository files expres
 ## Activate the repository
 
 - [ ] Replace project-specific URLs, contacts, and CODEOWNERS entries when ownership changes.
-- [ ] Confirm DCO is the intended legal mechanism and configure its sign-off check, or replace it with the target project's CLA/CA process.
+- [x] Confirm DCO is the intended legal mechanism and configure its sign-off check, or replace it with the target project's CLA/CA process.
 - [ ] Decide which bot or GitHub App identities, if any, may interact with the repository. List automation that has collaborator access in the `HELICOPTER_AUTOMATION_LOGINS` repository variable so its comments do not count as maintainer responses.
 - [ ] Review the two-PR limit and issue-first categories in `CONTRIBUTING.md`.
 - [ ] Create or replace the `needs-triage` and `automation-review` labels used by the issue forms.
