@@ -88,6 +88,8 @@ lefthook install
 
 Run `./scripts/ci.sh` before opening a pull request. It includes build, tests, architectural gates, and hook tests. Use `./scripts/lint.sh` for the full lint report; existing findings are not CI-blocking in this substrate pass.
 
+Air is intentionally omitted; `serve` is a resident daemon, not a hot-reload web server.
+
 ## Legal
 
 Sea Noise uses [Developer Certificate of Origin 1.1](https://developercertificate.org/). Sign off every commit:
