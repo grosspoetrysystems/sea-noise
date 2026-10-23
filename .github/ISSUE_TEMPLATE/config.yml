@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a Sea Noise vulnerability
+    url: https://github.com/grosspoetrysystems/sea-noise/security/advisories/new
+    about: Send security reports privately.
+  - name: Report conduct or abuse
+    url: https://support.github.com/contact/report-abuse
+    about: Include the relevant Sea Noise repository URL.

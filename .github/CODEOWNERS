@@ -1,0 +1,19 @@
+# Sea Noise is maintained by @thekidnamedkd.
+* @thekidnamedkd
+
+/.github/workflows/ @thekidnamedkd
+/.github/CODEOWNERS @thekidnamedkd
+/.github/ISSUE_TEMPLATE/ @thekidnamedkd
+/.github/pull_request_template.md @thekidnamedkd
+/.pr_agent.toml @thekidnamedkd
+/scripts/ @thekidnamedkd
+/tests/ @thekidnamedkd
+/cmd/ @thekidnamedkd
+/internal/ @thekidnamedkd
+/go.mod @thekidnamedkd
+/go.sum @thekidnamedkd
+/AGENTS.md @thekidnamedkd
+/SECURITY.md @thekidnamedkd
+/CONTRIBUTING.md @thekidnamedkd
+/MAINTAINERS.md @thekidnamedkd
+/CODE_OF_CONDUCT.md @thekidnamedkd
