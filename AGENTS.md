@@ -71,7 +71,7 @@ Vault path is resolved from `MIND_PALACE_VAULT` env var or `vault.path` in `sea-
 
 ## Commit discipline
 
-- **One-line subjects.** No body. No Co-Authored-By trailer. Under ~60 chars.
+- **One-line subjects.** No explanatory body or Co-Authored-By trailer. A `Signed-off-by` trailer is allowed when the contribution policy requires DCO. Under ~60 chars.
 - **Declarative and imperative about source/infra.** Never reference Tempor planning vocabulary (no `Phase`, `Wave`, `T01`, `kickoff`, `lookahead`, `v8 plan`, etc.).
 - **Subject describes what's changing in the codebase.** Use prefixes when they help (`init:`, `add:`, `fix:`, `refactor:`, `chore:`).
 - **Explanation belongs in code/docs, not in commit messages.** If a change needs a "why," put it in a comment, the relevant kickoff, or the architecture doc.

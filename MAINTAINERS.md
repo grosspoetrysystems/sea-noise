@@ -16,11 +16,11 @@ Sea Noise adopts Helicopter's contribution controls. The repository files expres
 
 ## GitHub settings
 
-Run `python3 scripts/configure_repository.py MODE --repo OWNER/REPOSITORY` after the required checks have run successfully. The configurator protects the default branch, applies the selected mode, and creates the `queue:` labels. The queue fails rather than create a missing label.
+Run `python3 scripts/configure_repository.py MODE --repo OWNER/REPOSITORY` after the required checks have run successfully. The configurator protects the default branch and creates the required queue and issue-form labels. The queue fails rather than create a missing label.
 
 All modes:
 
-- require `test-validator` and `validate-metadata`;
+- require `ci`, `test-validator`, and `validate-metadata`;
 - require resolved review conversations;
 - block force pushes and branch deletion; and
 - retain administrator bypass for emergency recovery.
