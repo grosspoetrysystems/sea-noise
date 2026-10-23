@@ -20,7 +20,7 @@ Run `python3 scripts/configure_repository.py MODE --repo OWNER/REPOSITORY` after
 
 All modes:
 
-- require `ci`, `test-validator`, and `validate-metadata`;
+- require `ci`, `test-validator`, `validate-metadata`, and `DCO`;
 - require resolved review conversations;
 - block force pushes and branch deletion; and
 - retain administrator bypass for emergency recovery.

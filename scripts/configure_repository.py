@@ -9,7 +9,7 @@ import subprocess
 from typing import Any
 
 MODES = ("solo", "contributor", "team")
-REQUIRED_CHECKS = ("ci", "test-validator", "validate-metadata")
+REQUIRED_CHECKS = ("ci", "test-validator", "validate-metadata", "DCO")
 REPOSITORY_LABELS = {
     "queue:awaiting-reviewer": ("fbca04", "Waiting on a maintainer; the queue clock is running."),
     "queue:awaiting-author": ("c5def5", "Waiting on the contributor."),
