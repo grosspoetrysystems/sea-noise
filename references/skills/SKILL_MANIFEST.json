@@ -1,0 +1,118 @@
+{
+  "schema": "sea-noise.skill_manifest.v1",
+  "vault_root": "/path/to/vault",
+  "updated_at": "2026-10-26",
+  "skills": [
+    {
+      "name": "inbox-pipeline",
+      "type": "pipeline",
+      "portable": true,
+      "description": "Process inbox notes through fetch, triage, transcript hydration, and downstream indexing.",
+      "files": ["references/skills/inbox-pipeline/SKILL.md"],
+      "scripts": ["cmd/sea-noise process-inbox"],
+      "depends_on": ["fetch-stubs", "summarize-transcripts", "rag-index"],
+      "schedule": "configured daemon schedule",
+      "claude_required": true
+    },
+    {
+      "name": "daily-pipeline",
+      "type": "pipeline",
+      "portable": true,
+      "description": "Marker-gated daily processing for retries, transcript enrichment, indexing, and signal generation.",
+      "files": ["references/skills/daily-pipeline/SKILL.md"],
+      "scripts": ["cmd/sea-noise run daily"],
+      "depends_on": ["fetch-stubs", "summarize-transcripts", "rag-index", "generate-signal"],
+      "schedule": "configured daemon schedule",
+      "marker": "_meta/.daily-last-run",
+      "claude_required": true
+    },
+    {
+      "name": "weekly-pipeline",
+      "type": "pipeline",
+      "portable": true,
+      "description": "Marker-gated weekly processing for indexing, link audits, topic briefs, and entity profiles.",
+      "files": ["references/skills/weekly-pipeline/SKILL.md"],
+      "scripts": ["cmd/sea-noise run weekly"],
+      "depends_on": ["rag-index", "generate-signal", "audit-links", "enrich-topics", "profile-entities"],
+      "schedule": "configured daemon schedule",
+      "marker": "_meta/.weekly-last-run",
+      "claude_required": true
+    },
+    {
+      "name": "fetch-stubs",
+      "type": "tool",
+      "portable": true,
+      "description": "Hydrate source stubs through the configured crawler and record retryable failures.",
+      "files": ["references/skills/fetch-stubs/SKILL.md"],
+      "scripts": ["references/scripts/fetch-stub-content.py"],
+      "env": ["CF_ACCOUNT_ID", "CF_API_TOKEN"],
+      "claude_required": false
+    },
+    {
+      "name": "summarize-transcripts",
+      "type": "tool",
+      "portable": true,
+      "description": "Enrich transcript and web-clip notes with configured inference output and domain tags.",
+      "files": ["references/skills/summarize-transcripts/SKILL.md"],
+      "scripts": ["references/scripts/summarize-transcripts.py"],
+      "claude_required": true
+    },
+    {
+      "name": "sync-todoist",
+      "type": "tool",
+      "portable": true,
+      "description": "Push configured todo notes to Todoist and pull completed tasks when credentials are provided.",
+      "files": ["references/skills/sync-todoist/SKILL.md"],
+      "scripts": ["references/scripts/sync-todoist.py", "references/scripts/sync-todoist-completions.py"],
+      "env": ["TODOIST_API_TOKEN", "TODOIST_WORK_ID", "TODOIST_PERSONAL_ID", "TODOIST_INBOX_ID"],
+      "claude_required": false
+    },
+    {
+      "name": "generate-signal",
+      "type": "tool",
+      "portable": true,
+      "description": "Score unconsumed notes and generate a signal queue.",
+      "files": ["references/skills/generate-signal/SKILL.md"],
+      "scripts": ["references/scripts/generate-signal.py"],
+      "claude_required": false
+    },
+    {
+      "name": "enrich-topics",
+      "type": "tool",
+      "portable": true,
+      "description": "Generate research briefs for topics reaching the configured threshold.",
+      "files": ["references/skills/enrich-topics/SKILL.md"],
+      "scripts": ["references/scripts/enrich-topics.py"],
+      "env": ["CF_ACCOUNT_ID", "CF_API_TOKEN"],
+      "claude_required": true
+    },
+    {
+      "name": "profile-entities",
+      "type": "tool",
+      "portable": true,
+      "description": "Generate profiles for repeated people, projects, or concepts found in the vault.",
+      "files": ["references/skills/profile-entities/SKILL.md"],
+      "scripts": ["references/scripts/profile-entities.py"],
+      "claude_required": true
+    },
+    {
+      "name": "audit-links",
+      "type": "tool",
+      "portable": true,
+      "description": "Scan the vault for broken wikilinks and write a report.",
+      "files": ["references/skills/audit-links/SKILL.md"],
+      "scripts": ["references/scripts/audit-links.py"],
+      "claude_required": false
+    },
+    {
+      "name": "rag-index",
+      "type": "tool",
+      "portable": true,
+      "description": "Build the configured local retrieval index from vault notes.",
+      "files": ["references/skills/rag-index/SKILL.md"],
+      "scripts": ["references/scripts/_rag/indexer.py"],
+      "env": ["HF_TOKEN"],
+      "claude_required": false
+    }
+  ]
+}

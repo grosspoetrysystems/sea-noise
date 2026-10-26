@@ -1,0 +1,55 @@
+[
+  {
+    "links": [],
+    "source": "AGENTS.md"
+  },
+  {
+    "links": [
+      "fixture-workflow",
+      "missing-fixture-note"
+    ],
+    "source": "HOME.md"
+  },
+  {
+    "links": [],
+    "source": "_meta/entity-profiles-log.md"
+  },
+  {
+    "links": [],
+    "source": "_meta/topic-frequencies.md"
+  },
+  {
+    "links": [],
+    "source": "notes/assertions/2026-04-01-runtime-boundary.md"
+  },
+  {
+    "links": [
+      "2026-03-10-go-tools"
+    ],
+    "source": "notes/references/2026-03-09-roasted-vegetables.md"
+  },
+  {
+    "links": [],
+    "source": "notes/references/2026-03-10-go-tools.md"
+  },
+  {
+    "links": [],
+    "source": "notes/references/2026-03-11-markdown-vault.md"
+  },
+  {
+    "links": [],
+    "source": "notes/references/2026-03-12-context-assembly.md"
+  },
+  {
+    "links": [],
+    "source": "notes/references/2026-03-13-retrieval-index.md"
+  },
+  {
+    "links": [],
+    "source": "notes/references/2026-03-14-clean-checks.md"
+  },
+  {
+    "links": [],
+    "source": "notes/references/2026-04-12-example-workflow.md"
+  }
+]

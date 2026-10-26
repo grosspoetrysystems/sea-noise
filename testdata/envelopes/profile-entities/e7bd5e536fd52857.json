@@ -1,0 +1,8 @@
+{
+  "captured_at": "2026-10-26T11:07:21.352394+00:00",
+  "prompt": "You are filtering entity candidates extracted via regex NER from a knowledge vault.\nFor each name below, respond with ONLY a JSON array of objects: [{\"name\": \"...\", \"keep\": true/false, \"type\": \"person|company|project|concept|other\"}]\n\nKeep = true ONLY for: real people, real companies/orgs, notable projects/products, or specific frameworks/methodologies worth a dedicated profile.\nKeep = false for: places, generic concepts, markdown headings, section titles, generic tech terms, or anything too vague for a useful standalone profile.\n\nCandidates:\n- Amber Engine\n",
+  "prompt_hash": "e7bd5e536fd52857",
+  "response": "[{\"name\": \"Amber Engine\", \"keep\": true, \"type\": \"project\"}]\n",
+  "skill_name": "filter-entity-candidates",
+  "skill_sha": "ec1d107e97fbd115fb59cdc3c6e7d75bef6ad00aeaf824b53263480d06f8bcce"
+}

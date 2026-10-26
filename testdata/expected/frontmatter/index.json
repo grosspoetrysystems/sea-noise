@@ -1,0 +1,72 @@
+[
+  {
+    "body_preview": "# Synthetic fixture vault\n\nThis vault contains neutral, fictional Markdown used for deterministic tests. It is not copied from a user's vault and must not be replaced with live data.\n",
+    "id": "AGENTS.md",
+    "path": "AGENTS.md",
+    "tags": "",
+    "title": "Synthetic fixture vault"
+  },
+  {
+    "body_preview": "A small neutral vault for Sea Noise parity and retrieval checks.\n\nSee [[fixture-workflow]] and [[missing-fixture-note]].\n",
+    "id": "HOME.md",
+    "path": "HOME.md",
+    "tags": "",
+    "title": "Synthetic fixture home"
+  },
+  {
+    "body_preview": "# Runtime Boundary\n\nA runtime should make ownership, mutation, and recovery visible.\n",
+    "id": "notes/assertions/2026-04-01-runtime-boundary.md",
+    "path": "notes/assertions/2026-04-01-runtime-boundary.md",
+    "tags": "",
+    "title": "Runtime Boundary"
+  },
+  {
+    "body_preview": "# Roasted Vegetables\n\nRoast seasonal vegetables until browned, then finish with lemon, herbs, and toasted seeds.\n\n## Related\n- [[2026-03-10-go-tools]]\n",
+    "id": "notes/references/2026-03-09-roasted-vegetables.md",
+    "path": "notes/references/2026-03-09-roasted-vegetables.md",
+    "tags": "",
+    "title": "Roasted Vegetables"
+  },
+  {
+    "body_preview": "# Go Tools\n\nSea Noise uses Go tools to build a small static runtime. Go Tools keeps the vault boundary explicit. Amber Engine documents the example boundary.\n",
+    "id": "notes/references/2026-03-10-go-tools.md",
+    "path": "notes/references/2026-03-10-go-tools.md",
+    "tags": "",
+    "title": "Go Tools"
+  },
+  {
+    "body_preview": "# Markdown Vault\n\nThe Markdown Vault stays outside the binary. Go Tools read it through a narrow interface. Amber Engine records the source boundary.\n",
+    "id": "notes/references/2026-03-11-markdown-vault.md",
+    "path": "notes/references/2026-03-11-markdown-vault.md",
+    "tags": "",
+    "title": "Markdown Vault"
+  },
+  {
+    "body_preview": "# Context Assembly\n\nContext Assembly combines selected Markdown notes without taking ownership of the source vault. Amber Engine keeps the assembly deterministic.\n",
+    "id": "notes/references/2026-03-12-context-assembly.md",
+    "path": "notes/references/2026-03-12-context-assembly.md",
+    "tags": "",
+    "title": "Context Assembly"
+  },
+  {
+    "body_preview": "# Retrieval Index\n\nThe Retrieval Index is derived state. Go Tools can rebuild it when the source vault changes. Amber Engine makes the rebuild observable.\n",
+    "id": "notes/references/2026-03-13-retrieval-index.md",
+    "path": "notes/references/2026-03-13-retrieval-index.md",
+    "tags": "",
+    "title": "Retrieval Index"
+  },
+  {
+    "body_preview": "# Clean Checks\n\nClean Checks make a public release reproducible from a fresh checkout. Amber Engine is the neutral entity used by the profile parity test.\n",
+    "id": "notes/references/2026-03-14-clean-checks.md",
+    "path": "notes/references/2026-03-14-clean-checks.md",
+    "tags": "",
+    "title": "Clean Checks"
+  },
+  {
+    "body_preview": "# Example Workflow\n\n## Transcript\n\nThis synthetic transcript explains how a small command can keep a Markdown vault useful. It separates configuration from execution and keeps the external vault as the source of truth. A simple workflow favors clear boundaries, repeatable checks, and explicit recovery when a command fails. The example is intentionally fictional and exists only to exercise transcript enrichment.\n\nThe speaker compares a source document with derived indexes and asks where ownership should live. A source vault can remain an ordinary directory while a runtime builds temporary views, search indexes, and summaries beside it. Each derived artifact should be rebuildable, and each mutating command should say which files it writes. This makes a first run understandable and makes a failed run recoverable.\n\nThe transcript also describes small operational habits: keep configuration near the command, prefer boring standard formats, make dry runs available for destructive work, and record enough context to explain a result later. These are general engineering examples rather than claims about a real product or person. The test fixture keeps the language generic so its output can be published safely.\n",
+    "id": "notes/references/2026-04-12-example-workflow.md",
+    "path": "notes/references/2026-04-12-example-workflow.md",
+    "tags": "",
+    "title": "Example Workflow"
+  }
+]

@@ -1,0 +1,14 @@
+# Public project ownership
+* @grosspoetrysystems
+
+/.github/ @grosspoetrysystems
+/scripts/ @grosspoetrysystems
+/cmd/ @grosspoetrysystems
+/internal/ @grosspoetrysystems
+/go.mod @grosspoetrysystems
+/go.sum @grosspoetrysystems
+/AGENTS.md @grosspoetrysystems
+/SECURITY.md @grosspoetrysystems
+/CONTRIBUTING.md @grosspoetrysystems
+/MAINTAINERS.md @grosspoetrysystems
+/CODE_OF_CONDUCT.md @grosspoetrysystems

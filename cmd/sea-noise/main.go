@@ -1,0 +1,138 @@
+// Command sea-noise is the CLI entry point for the Sea Noise runtime.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+)
+
+const version = "0.1.0"
+
+func main() {
+	flag.Usage = printUsage
+	showVersion := flag.Bool("version", false, "print version and exit")
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
+
+	if flag.NArg() == 0 {
+		printUsage()
+		return
+	}
+
+	sub := flag.Arg(0)
+	rest := flag.Args()[1:]
+
+	switch sub {
+	case "audit-links":
+		if err := runAuditLinks(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise audit-links: %v\n", err)
+			os.Exit(1)
+		}
+	case "summarize-transcripts":
+		if err := runSummarizeTranscripts(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise summarize-transcripts: %v\n", err)
+			os.Exit(1)
+		}
+	case "profile-entities":
+		if err := runProfileEntities(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise profile-entities: %v\n", err)
+			os.Exit(1)
+		}
+	case "index":
+		if err := runIndex(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise index: %v\n", err)
+			os.Exit(1)
+		}
+	case "search":
+		if err := runSearch(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise search: %v\n", err)
+			os.Exit(1)
+		}
+	case "generate-signal":
+		if err := runGenerateSignal(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise generate-signal: %v\n", err)
+			os.Exit(1)
+		}
+	case "enrich-topics":
+		if err := runEnrichTopics(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise enrich-topics: %v\n", err)
+			os.Exit(1)
+		}
+	case "youtube":
+		if err := runYoutube(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise youtube: %v\n", err)
+			os.Exit(1)
+		}
+	case "sync":
+		if err := runSync(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise sync: %v\n", err)
+			os.Exit(1)
+		}
+	case "fetch":
+		if err := runFetch(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise fetch: %v\n", err)
+			os.Exit(1)
+		}
+	case "process-inbox":
+		if err := runProcessInbox(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise process-inbox: %v\n", err)
+			os.Exit(1)
+		}
+	case "serve":
+		if err := runServe(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise serve: %v\n", err)
+			os.Exit(1)
+		}
+	case "run":
+		if err := runRun(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise run: %v\n", err)
+			os.Exit(1)
+		}
+	case "parity-discover":
+		if err := runParityDiscover(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise parity-discover: %v\n", err)
+			os.Exit(1)
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "sea-noise: unknown subcommand %q\n\n", sub)
+		printUsage()
+		os.Exit(2)
+	}
+}
+
+func printUsage() {
+	fmt.Fprintln(os.Stderr, `sea-noise — local retrieval and context-assembly runtime over a markdown vault
+
+Usage:
+  sea-noise [flags] <subcommand> [args...]
+
+Flags:
+  --help       show this help
+  --version    print version and exit
+
+Subcommands:
+  audit-links              scan vault for broken [[wikilinks]], write report to _meta/broken-links.md
+  summarize-transcripts    enrich notes containing ## Transcript with a ## Research Context section via the configured inference CLI
+  profile-entities         generate entity profiles from repeated vault mentions
+  index                    rebuild the SQLite retrieval index for the configured vault (--db PATH, optional; defaults to ~/.sea-noise/retrieval.db)
+  search                   run FTS5 keyword search against the index (defaults to ~/.sea-noise/retrieval.db)
+  generate-signal          assemble the rolling signal queue from unconsumed notes, write to signal/queue.md
+  enrich-topics            write a research brief for a topic cluster; uses Cloudflare /crawl when CF_ACCOUNT_ID + CF_API_TOKEN are set, vault-only otherwise
+  youtube                  hydrate notes whose source: frontmatter points at YouTube with a ## Transcript section
+  sync todoist [push]      push notes/todos/*.md to Todoist as new tasks; records the returned id in note frontmatter
+  sync todoist --completions  pull recently-completed Todoist tasks and mark the matching vault notes done
+  fetch                    hydrate inbox stubs by crawling their source URLs; dedups against existing vault notes
+  fetch --retry            retry failed crawls from _meta/crawl-failures.json whose backoff window has elapsed
+  process-inbox            invoke the inbox-process skill: triage every inbox/ note, update topic-frequencies + atlas/, promote out of inbox
+  serve                    start the resident daemon: in-process scheduler firing daily / weekly pipelines on Go timers
+  run inbox|daily|weekly   one-shot debug entry: fire one pipeline once and exit; respects the marker file unless --force is set
+
+Config:
+  Vault path is resolved from MIND_PALACE_VAULT env or vault.path in
+  sea-noise.toml. See sea-noise.toml.example for the format.`)
+}

@@ -1,0 +1,273 @@
+{
+  "notes": [
+    {
+      "id": "AGENTS.md",
+      "path": "AGENTS.md",
+      "type": "",
+      "title": "Synthetic fixture vault",
+      "tags": "",
+      "frontmatter_json": "{}"
+    },
+    {
+      "id": "HOME.md",
+      "path": "HOME.md",
+      "type": "",
+      "title": "Synthetic fixture home",
+      "tags": "",
+      "frontmatter_json": "{\"tags\":[\"project/fixture\"],\"title\":\"Synthetic fixture home\"}"
+    },
+    {
+      "id": "notes/assertions/2026-04-01-runtime-boundary.md",
+      "path": "notes/assertions/2026-04-01-runtime-boundary.md",
+      "type": "",
+      "title": "Runtime Boundary",
+      "tags": "",
+      "frontmatter_json": "{\"status\":\"active\",\"tags\":[\"project/fixture\",\"tech/go-workflows\"],\"title\":\"Runtime Boundary\"}"
+    },
+    {
+      "id": "notes/references/2026-03-09-roasted-vegetables.md",
+      "path": "notes/references/2026-03-09-roasted-vegetables.md",
+      "type": "",
+      "title": "Roasted Vegetables",
+      "tags": "",
+      "frontmatter_json": "{\"source\":\"voice-capture\",\"tags\":[\"reference\",\"life/cooking\"],\"title\":\"Roasted Vegetables\"}"
+    },
+    {
+      "id": "notes/references/2026-03-10-go-tools.md",
+      "path": "notes/references/2026-03-10-go-tools.md",
+      "type": "",
+      "title": "Go Tools",
+      "tags": "",
+      "frontmatter_json": "{\"tags\":[\"tech/go-workflows\"],\"title\":\"Go Tools\"}"
+    },
+    {
+      "id": "notes/references/2026-03-11-markdown-vault.md",
+      "path": "notes/references/2026-03-11-markdown-vault.md",
+      "type": "",
+      "title": "Markdown Vault",
+      "tags": "",
+      "frontmatter_json": "{\"tags\":[\"tech/go-workflows\"],\"title\":\"Markdown Vault\"}"
+    },
+    {
+      "id": "notes/references/2026-03-12-context-assembly.md",
+      "path": "notes/references/2026-03-12-context-assembly.md",
+      "type": "",
+      "title": "Context Assembly",
+      "tags": "",
+      "frontmatter_json": "{\"tags\":[\"tech/go-workflows\"],\"title\":\"Context Assembly\"}"
+    },
+    {
+      "id": "notes/references/2026-03-13-retrieval-index.md",
+      "path": "notes/references/2026-03-13-retrieval-index.md",
+      "type": "",
+      "title": "Retrieval Index",
+      "tags": "",
+      "frontmatter_json": "{\"tags\":[\"tech/go-workflows\"],\"title\":\"Retrieval Index\"}"
+    },
+    {
+      "id": "notes/references/2026-03-14-clean-checks.md",
+      "path": "notes/references/2026-03-14-clean-checks.md",
+      "type": "",
+      "title": "Clean Checks",
+      "tags": "",
+      "frontmatter_json": "{\"tags\":[\"tech/go-workflows\"],\"title\":\"Clean Checks\"}"
+    },
+    {
+      "id": "notes/references/2026-04-12-example-workflow.md",
+      "path": "notes/references/2026-04-12-example-workflow.md",
+      "type": "",
+      "title": "Example Workflow",
+      "tags": "",
+      "frontmatter_json": "{\"content-type\":\"listen-watch\",\"source\":\"https://www.youtube.com/watch?v=synthetic-example\",\"tags\":[\"reference\",\"tech/go-workflows\"],\"title\":\"Example Workflow\"}"
+    }
+  ],
+  "chunks": [
+    {
+      "note_id": "AGENTS.md",
+      "ordinal": 0,
+      "body": "# Synthetic fixture vault"
+    },
+    {
+      "note_id": "AGENTS.md",
+      "ordinal": 1,
+      "body": "This vault contains neutral, fictional Markdown used for deterministic tests. It is not copied from a user's vault and must not be replaced with live data."
+    },
+    {
+      "note_id": "HOME.md",
+      "ordinal": 0,
+      "body": "A small neutral vault for Sea Noise parity and retrieval checks."
+    },
+    {
+      "note_id": "HOME.md",
+      "ordinal": 1,
+      "body": "See [[fixture-workflow]] and [[missing-fixture-note]]."
+    },
+    {
+      "note_id": "notes/assertions/2026-04-01-runtime-boundary.md",
+      "ordinal": 0,
+      "body": "# Runtime Boundary"
+    },
+    {
+      "note_id": "notes/assertions/2026-04-01-runtime-boundary.md",
+      "ordinal": 1,
+      "body": "A runtime should make ownership, mutation, and recovery visible."
+    },
+    {
+      "note_id": "notes/references/2026-03-09-roasted-vegetables.md",
+      "ordinal": 0,
+      "body": "# Roasted Vegetables"
+    },
+    {
+      "note_id": "notes/references/2026-03-09-roasted-vegetables.md",
+      "ordinal": 1,
+      "body": "Roast seasonal vegetables until browned, then finish with lemon, herbs, and toasted seeds."
+    },
+    {
+      "note_id": "notes/references/2026-03-09-roasted-vegetables.md",
+      "ordinal": 2,
+      "body": "## Related\n- [[2026-03-10-go-tools]]"
+    },
+    {
+      "note_id": "notes/references/2026-03-10-go-tools.md",
+      "ordinal": 0,
+      "body": "# Go Tools"
+    },
+    {
+      "note_id": "notes/references/2026-03-10-go-tools.md",
+      "ordinal": 1,
+      "body": "Sea Noise uses Go tools to build a small static runtime. Go Tools keeps the vault boundary explicit. Amber Engine documents the example boundary."
+    },
+    {
+      "note_id": "notes/references/2026-03-11-markdown-vault.md",
+      "ordinal": 0,
+      "body": "# Markdown Vault"
+    },
+    {
+      "note_id": "notes/references/2026-03-11-markdown-vault.md",
+      "ordinal": 1,
+      "body": "The Markdown Vault stays outside the binary. Go Tools read it through a narrow interface. Amber Engine records the source boundary."
+    },
+    {
+      "note_id": "notes/references/2026-03-12-context-assembly.md",
+      "ordinal": 0,
+      "body": "# Context Assembly"
+    },
+    {
+      "note_id": "notes/references/2026-03-12-context-assembly.md",
+      "ordinal": 1,
+      "body": "Context Assembly combines selected Markdown notes without taking ownership of the source vault. Amber Engine keeps the assembly deterministic."
+    },
+    {
+      "note_id": "notes/references/2026-03-13-retrieval-index.md",
+      "ordinal": 0,
+      "body": "# Retrieval Index"
+    },
+    {
+      "note_id": "notes/references/2026-03-13-retrieval-index.md",
+      "ordinal": 1,
+      "body": "The Retrieval Index is derived state. Go Tools can rebuild it when the source vault changes. Amber Engine makes the rebuild observable."
+    },
+    {
+      "note_id": "notes/references/2026-03-14-clean-checks.md",
+      "ordinal": 0,
+      "body": "# Clean Checks"
+    },
+    {
+      "note_id": "notes/references/2026-03-14-clean-checks.md",
+      "ordinal": 1,
+      "body": "Clean Checks make a public release reproducible from a fresh checkout. Amber Engine is the neutral entity used by the profile parity test."
+    },
+    {
+      "note_id": "notes/references/2026-04-12-example-workflow.md",
+      "ordinal": 0,
+      "body": "# Example Workflow"
+    },
+    {
+      "note_id": "notes/references/2026-04-12-example-workflow.md",
+      "ordinal": 1,
+      "body": "## Transcript"
+    },
+    {
+      "note_id": "notes/references/2026-04-12-example-workflow.md",
+      "ordinal": 2,
+      "body": "This synthetic transcript explains how a small command can keep a Markdown vault useful. It separates configuration from execution and keeps the external vault as the source of truth. A simple workflow favors clear boundaries, repeatable checks, and explicit recovery when a command fails. The example is intentionally fictional and exists only to exercise transcript enrichment."
+    },
+    {
+      "note_id": "notes/references/2026-04-12-example-workflow.md",
+      "ordinal": 3,
+      "body": "The speaker compares a source document with derived indexes and asks where ownership should live. A source vault can remain an ordinary directory while a runtime builds temporary views, search indexes, and summaries beside it. Each derived artifact should be rebuildable, and each mutating command should say which files it writes. This makes a first run understandable and makes a failed run recoverable."
+    },
+    {
+      "note_id": "notes/references/2026-04-12-example-workflow.md",
+      "ordinal": 4,
+      "body": "The transcript also describes small operational habits: keep configuration near the command, prefer boring standard formats, make dry runs available for destructive work, and record enough context to explain a result later. These are general engineering examples rather than claims about a real product or person. The test fixture keeps the language generic so its output can be published safely."
+    }
+  ],
+  "tags": [
+    {
+      "note_id": "HOME.md",
+      "tag": "project/fixture"
+    },
+    {
+      "note_id": "notes/assertions/2026-04-01-runtime-boundary.md",
+      "tag": "project/fixture"
+    },
+    {
+      "note_id": "notes/assertions/2026-04-01-runtime-boundary.md",
+      "tag": "tech/go-workflows"
+    },
+    {
+      "note_id": "notes/references/2026-03-09-roasted-vegetables.md",
+      "tag": "life/cooking"
+    },
+    {
+      "note_id": "notes/references/2026-03-09-roasted-vegetables.md",
+      "tag": "reference"
+    },
+    {
+      "note_id": "notes/references/2026-03-10-go-tools.md",
+      "tag": "tech/go-workflows"
+    },
+    {
+      "note_id": "notes/references/2026-03-11-markdown-vault.md",
+      "tag": "tech/go-workflows"
+    },
+    {
+      "note_id": "notes/references/2026-03-12-context-assembly.md",
+      "tag": "tech/go-workflows"
+    },
+    {
+      "note_id": "notes/references/2026-03-13-retrieval-index.md",
+      "tag": "tech/go-workflows"
+    },
+    {
+      "note_id": "notes/references/2026-03-14-clean-checks.md",
+      "tag": "tech/go-workflows"
+    },
+    {
+      "note_id": "notes/references/2026-04-12-example-workflow.md",
+      "tag": "reference"
+    },
+    {
+      "note_id": "notes/references/2026-04-12-example-workflow.md",
+      "tag": "tech/go-workflows"
+    }
+  ],
+  "links": [
+    {
+      "from_note_id": "HOME.md",
+      "to_note_path": "fixture-workflow"
+    },
+    {
+      "from_note_id": "HOME.md",
+      "to_note_path": "missing-fixture-note"
+    },
+    {
+      "from_note_id": "notes/references/2026-03-09-roasted-vegetables.md",
+      "to_note_path": "2026-03-10-go-tools"
+    }
+  ],
+  "entities": null,
+  "assertions": null,
+  "timestamps": null
+}

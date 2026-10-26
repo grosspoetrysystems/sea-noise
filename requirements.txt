@@ -1,0 +1,21 @@
+# Python deps for the prototype scripts under references/ and for the
+# golden-fixture capture procedure under testdata/scripts/.
+#
+# Pinned Python version: >= 3.12 (matches the prototype's macOS/Linux baseline).
+# Verify with: python3 --version
+#
+# Current scope (P1-W3): parity capture for the markdown engine uses pure
+# stdlib only — no third-party deps required.
+#
+# Used by the prototype scripts that capture-parity.py will eventually
+# invoke when more surfaces get ported:
+python-frontmatter
+requests  # imported by references/scripts/enrich-topics.py at module load; needed by testdata/scripts/capture-enrich-topics.py
+
+# Future additions (when their respective scripts get ported):
+#   youtube-transcript-api  # fetch-youtube-transcript
+#
+# Capture environment:
+#   python3 -m venv .venv
+#   source .venv/bin/activate
+#   pip install -r requirements.txt
