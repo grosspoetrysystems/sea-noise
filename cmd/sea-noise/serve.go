@@ -33,12 +33,12 @@ import (
 func runServe(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	skillsDir := fs.String("skills-dir", "", "directory containing inference skill files")
-	cliCommand := fs.String("cli-command", "", "executable for the inference CLI (e.g., claude, codex). When unset, steps that need inference are skipped.")
+	cliCommand := fs.String("cli-command", "", "executable for the inference CLI (e.g., claude, codex). When unset, steps requiring inference report a missing dependency.")
 	cliArgsList := fs.String("cli-args", "-p,{PROMPT},--dangerously-skip-permissions", "comma-separated argv template; {PROMPT} substituted")
 	timeoutSec := fs.Int("timeout", 1800, "per-inference-call timeout in seconds")
 	dryRun := fs.Bool("dry-run", false, "log every step that would run without executing any side effects")
 	indexDB := fs.String("index-db", "", "SQLite path for the retrieval index (default ~/.sea-noise/retrieval.db)")
-	socket := fs.String("socket", "", "Unix-socket path for the JSON-RPC IPC surface (default $SEA_NOISE_SOCKET or ~/.sea-noise/daemon.sock). Empty disables IPC.")
+	socket := fs.String("socket", "", "Unix-socket path for the JSON-RPC IPC surface (default $SEA_NOISE_SOCKET or ~/.sea-noise/daemon.sock). Empty uses the default path.")
 	noIPC := fs.Bool("no-ipc", false, "disable the IPC listener entirely")
 	noWatch := fs.Bool("no-watch", false, "disable the fsnotify vault watcher entirely")
 	debounceMs := fs.Int("watch-debounce-ms", int(watcher.DefaultDebounce/time.Millisecond), "watcher per-path debounce window in milliseconds")
@@ -151,8 +151,8 @@ func startIPC(ctx context.Context, flagPath string, srv *daemon.Server, deps dae
 
 // buildDaemonDeps resolves vault + optional collaborators. Errors
 // only on hard-required state (vault path); soft-missing creds
-// (TODOIST_API_TOKEN, --cli-command) produce a nil dep and the
-// dependent step becomes deferred at run time.
+// (TODOIST_API_TOKEN, --cli-command) leave dependencies nil, and
+// individual steps defer or report explicit missing-dependency errors.
 func buildDaemonDeps(cliCommand, cliArgsList, skillsDir string, timeoutSec int, indexDB string) (daemonStepDeps, error) {
 	vaultRoot, err := config.LoadVaultPath()
 	if err != nil {

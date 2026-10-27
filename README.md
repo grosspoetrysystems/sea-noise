@@ -19,24 +19,41 @@ The current release target is an installable, single-binary baseline. The runtim
 
 Cloudflare and Todoist credentials are optional integrations. Commands that need them fail clearly or fall back to local-only behavior as documented by their command help.
 
-## Build and install
+## Build and first run
 
 Build from source:
 
 ```sh
 git clone https://github.com/grosspoetrysystems/sea-noise.git
 cd sea-noise
-go build -trimpath -o sea-noise ./cmd/sea-noise
+CGO_ENABLED=0 go build -trimpath -o sea-noise ./cmd/sea-noise
 ./sea-noise --version
 ```
+
+The binary is self-contained. It does not invoke Python and does not require
+a checkout after it has been built. Sea Noise is distributed as a Go binary;
+there is no npm package or Node runtime dependency. Node is used only for
+repository hook tests.
+
+For a safe first run, use a disposable copy of a Markdown vault:
+
+```sh
+export MIND_PALACE_VAULT=/absolute/path/to/disposable-vault
+./sea-noise index
+./sea-noise search --limit 5 "known term"
+./sea-noise run --dry-run inbox
+```
+
+`search` requires an index. `run --dry-run` logs the steps it would execute
+without invoking them; it still appends a processing log under
+`_meta/processing-logs/`. Inspect that log and the vault diff before enabling
+any write-producing workflow.
 
 For a repository-wide build and test pass:
 
 ```sh
 ./scripts/ci.sh
 ```
-
-The binary is self-contained. It does not invoke Python and does not require a checkout after it has been built.
 
 ## Configure a vault
 
@@ -47,7 +64,26 @@ cp sea-noise.toml.example sea-noise.toml
 # edit vault.path
 ```
 
-`vault.path` may also be supplied through the `MIND_PALACE_VAULT` environment variable for compatibility with earlier Sea Noise development. The environment variable wins when both sources are set. Neither the configuration file nor the vault belongs in this repository.
+`vault.path` may also be supplied through the `MIND_PALACE_VAULT` environment
+variable for compatibility with earlier Sea Noise development. The environment
+variable wins when both sources are set. Neither the configuration file nor the
+vault belongs in this repository. Paths must be absolute existing directories.
+
+## Rollout
+
+1. Build from a clean, tagged commit and record the binary checksum.
+2. Copy the vault to a disposable location and run the first-run sequence above.
+3. Start with `sea-noise run --dry-run inbox`, then repeat for `daily` and
+   `weekly`.
+4. Snapshot the real vault before enabling writes.
+5. Process one controlled inbox note and inspect every changed file.
+6. Enable `serve` only after the canary succeeds; keep other schedulers disabled.
+
+AI-backed commands require an explicit inference CLI. Review the command and
+arguments before enabling live writes: the default `--cli-args` includes
+`--dangerously-skip-permissions` for compatibility with the prototype.
+Cloudflare and Todoist integrations should be enabled one at a time with test
+credentials or accounts.
 
 ## Commands
 
@@ -69,7 +105,8 @@ Run `./sea-noise --help` for the current flags. The main surfaces are:
 | `run` | Run one named pipeline | Usually |
 | `serve` | Run scheduled pipelines as a resident process | Usually |
 
-Prefer a copy of the vault and a dry-run or report-producing command when learning a new write path.
+Prefer a copy of the vault and a dry-run or report-producing command when
+learning a new write path.
 
 ## Credentials and integrations
 

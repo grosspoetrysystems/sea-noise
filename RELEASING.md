@@ -40,6 +40,27 @@ shasum -a 256 sea-noise
 
 Cross-compile only from a clean checkout and record the target tuple and checksum with the release artifacts. Do not publish a binary built from an uncommitted tree.
 
+## Rollout and rollback
+
+Before enabling a release against a real vault:
+
+1. Build from the tagged commit with `CGO_ENABLED=0`.
+2. Record the binary checksum and verify `sea-noise --version`.
+3. Run the first-run sequence against a disposable vault.
+4. Snapshot the real vault, configuration, and retrieval index.
+5. Process one controlled inbox note and inspect the complete diff.
+6. Enable the daemon only after the canary is clean; keep other schedulers disabled.
+
+To upgrade, stop the daemon, save the current binary and index, replace the
+binary, verify its version, rebuild or validate the index, and restart with the
+same explicit flags. If vault mutations are wrong, stop the daemon, restore the
+vault snapshot and previous binary, and inspect the processing log before
+retrying. Do not restore by moving a published tag; publish a new patch release
+for defective code.
+
+Sea Noise is currently a Go-binary distribution. There is no npm release
+artifact or Node runtime to upgrade.
+
 ## Rollback
 
 Do not move or overwrite a published tag. If a release is defective, publish a new patch version and explain the correction in `CHANGELOG.md`.
