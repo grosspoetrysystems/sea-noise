@@ -92,3 +92,11 @@ Sea Noise is end-user runtime software, not a developer SDK or agent-harness com
 ## Worktree-first orchestration
 
 Per `orchestration_contract.parallelism_model = worktree-first` in the v8 plan: each track gets its own git worktree under `.worktrees/<track-id>/`. Branch convention is `swarm/<track-id>`. Worktrees are gitignored at the repo level so the main tree stays clean.
+
+## Contribution governance
+
+Contribution governance comes from Helicopter (`.github/helicopter/version.json`). Use the Helicopter skill to update or check it:
+
+```text
+npx skills add grosspoetrysystems/helicopter
+```
