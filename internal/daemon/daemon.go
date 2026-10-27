@@ -176,6 +176,17 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
+func (s *Server) catchUp(ctx context.Context, now time.Time) {
+	previousDay := now.Add(-24 * time.Hour)
+	if len(s.registry.Daily) > 0 && dailyDue(previousDay, now, s.cfg.DailyAt) {
+		s.reportPipelineError(ctx, PipelineDaily, now)
+	}
+	previousWeek := now.Add(-7 * 24 * time.Hour)
+	if len(s.registry.Weekly) > 0 && weeklyDue(previousWeek, now, s.cfg.WeeklyDay, s.cfg.WeeklyAt) {
+		s.reportPipelineError(ctx, PipelineWeekly, now)
+	}
+}
+
 // Stop signals the scheduler to drain and waits for in-flight steps
 // to finish. Idempotent.
 func (s *Server) Stop() error {
@@ -191,55 +202,67 @@ func (s *Server) Stop() error {
 	return nil
 }
 
-// scheduleLoop ticks every minute and fires daily/weekly pipelines
-// when the clock crosses the configured boundary. One-minute
-// granularity is enough — neither pipeline cares about sub-minute
-// timing.
+// scheduleLoop checks every minute and fires pipelines whose schedule
+// boundary was crossed since the previous check. Comparing boundaries
+// instead of exact clock equality lets the daemon catch up after sleep
+// or a long-running pipeline.
 func (s *Server) scheduleLoop(ctx context.Context) {
 	defer s.wg.Done()
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
+	previous := s.clock.Now()
+	s.catchUp(ctx, previous)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			now := s.clock.Now()
-			s.maybeFire(ctx, now)
+			s.maybeFireBetween(ctx, previous, now)
+			previous = now
 		}
 	}
 }
 
-// maybeFire runs each pipeline whose schedule window includes now,
-// gated by the marker file.
+// maybeFire preserves the direct test/manual trigger semantics for one
+// minute of elapsed time.
 func (s *Server) maybeFire(ctx context.Context, now time.Time) {
-	if shouldFireDaily(now, s.cfg.DailyAt) {
+	s.maybeFireBetween(ctx, now.Add(-time.Minute), now)
+}
+
+func (s *Server) maybeFireBetween(ctx context.Context, previous, now time.Time) {
+	if dailyDue(previous, now, s.cfg.DailyAt) {
 		s.reportPipelineError(ctx, PipelineDaily, now)
 	}
-	if shouldFireWeekly(now, s.cfg.WeeklyDay, s.cfg.WeeklyAt) {
+	if weeklyDue(previous, now, s.cfg.WeeklyDay, s.cfg.WeeklyAt) {
 		s.reportPipelineError(ctx, PipelineWeekly, now)
 	}
-	if shouldFireInbox(now) {
+	if inboxDue(previous, now) {
 		s.reportPipelineError(ctx, PipelineInbox, now)
 	}
+}
+
+func dailyDue(previous, now, dailyAt time.Time) bool {
+	boundary := time.Date(now.Year(), now.Month(), now.Day(), dailyAt.Hour(), dailyAt.Minute(), 0, 0, now.Location())
+	return !now.Before(boundary) && previous.Before(boundary)
+}
+
+func weeklyDue(previous, now time.Time, dow time.Weekday, weeklyAt time.Time) bool {
+	daysSince := (int(now.Weekday()) - int(dow) + 7) % 7
+	day := now.AddDate(0, 0, -daysSince)
+	boundary := time.Date(day.Year(), day.Month(), day.Day(), weeklyAt.Hour(), weeklyAt.Minute(), 0, 0, now.Location())
+	return !now.Before(boundary) && previous.Before(boundary)
+}
+
+func inboxDue(previous, now time.Time) bool {
+	boundary := now.Truncate(30 * time.Minute)
+	return !now.Before(boundary) && previous.Before(boundary)
 }
 
 func (s *Server) reportPipelineError(ctx context.Context, name string, now time.Time) {
 	if err := s.RunPipeline(ctx, name, now); err != nil && !errors.Is(err, ErrSkippedAlreadyRan) {
 		fmt.Printf("sea-noise %s pipeline: %v\n", name, err)
 	}
-}
-
-func shouldFireInbox(now time.Time) bool {
-	return now.Minute()%30 == 0
-}
-
-func shouldFireDaily(now, dailyAt time.Time) bool {
-	return now.Hour() == dailyAt.Hour() && now.Minute() == dailyAt.Minute()
-}
-
-func shouldFireWeekly(now time.Time, dow time.Weekday, weeklyAt time.Time) bool {
-	return now.Weekday() == dow && now.Hour() == weeklyAt.Hour() && now.Minute() == weeklyAt.Minute()
 }
 
 // RunPipeline executes the named pipeline once, honoring the marker

@@ -14,17 +14,18 @@ The daemon owns the schedule internally. It owns the vault-change reaction. It o
 sea-noise serve
 ```
 
-Starts the resident daemon. Runs indefinitely until killed (`SIGINT`, `SIGTERM`) or the process exits. Clean shutdown:
+Starts the resident daemon. Runs indefinitely until killed (`SIGINT`, `SIGTERM`) or
+the process exits. Clean shutdown stops the watcher and IPC listener, then waits
+for in-flight pipeline steps to finish before exiting. There is no configurable
+shutdown grace period or rollback of vault writes.
 
-1. Stops accepting new IPC requests
-2. Waits for in-flight pipeline steps to complete (bounded by a configurable grace period)
-3. Removes the IPC socket file
-4. Flushes any pending processing-log entries
-5. Exits 0
+A second `sea-noise serve` against the same socket path refuses to start and
+exits non-zero with a message identifying the existing process. There is no
+`--force` flag.
 
-A second `sea-noise serve` against the same socket path refuses to start and exits non-zero with a message identifying the existing process. There is no `--force` flag.
-
-`sea-noise.toml` configures: vault path, socket path, daily schedule time, weekly schedule day + time, dry-run default, watcher debounce interval.
+The configuration file currently supports only `vault.path`. Socket, dry-run,
+watcher, inference, and index settings are command-line flags; `MIND_PALACE_VAULT`
+overrides `vault.path`.
 
 ## How to start the daemon
 
@@ -48,71 +49,90 @@ There is intentionally no `sea-noise schedule install` subcommand and no auto-ge
 
 ## Internal scheduler
 
-- **Inbox** — fires every 30 minutes at minute `00` and `30`, plus
-  immediately on daemon startup when `inbox/` already contains notes.
+- **Inbox** — fires every 30 minutes at minute `00` and `30`; if the
+  daemon wakes after a boundary, the next scheduler check reconciles the
+  current inbox. Startup watcher scans also catch notes already present.
   Step order: `hydrate-stubs → process-inbox → youtube-transcript`.
 
-- **Daily** — fires at the configured daily time (default 00:05 local):
-  `retry-crawls → summarize-transcripts → index → generate-signal`.
+- **Daily** — fires at `00:05 UTC`; a startup or post-sleep check catches
+  the current missed window:
+  `rotate-logs → retry-crawls → summarize → index → daily-synthesis (deferred) → sync-consumed (deferred) → signal → plunge (deferred) → home (deferred) → todoist-push → todoist-pull`.
 
-- **Weekly** — fires at the configured weekly day + time (default Sunday 01:00 local):
-  `retry-crawls → index → generate-signal → audit-links → enrich-topics → profile-entities`.
+- **Weekly** — fires on Sunday at `01:00 UTC`; startup or post-sleep
+  checks catch the current missed window:
+  `retry-crawls → weekly-synthesis (deferred) → index → signal → audit-links → enrich-topics → profile-entities`.
 
-Marker files (`_meta/.daily-last-run`, `_meta/.weekly-last-run`) gate re-execution within the same period. A second tick within the period skips the chain with an INFO log message.
+Marker files (`_meta/.daily-last-run`, `_meta/.weekly-last-run`) gate
+re-execution within the same period. A second tick within the period skips the
+chain.
 
-The same step lists are exposed as one-shot CLI subcommands (`sea-noise run inbox|daily|weekly`) for developer / debug use. Both paths call into the same `internal/pipeline/` package. The daemon path is the production path; the CLI path is for working on a single chain interactively.
+The same step lists are exposed as one-shot CLI subcommands
+(`sea-noise run --dry-run inbox`, `sea-noise run daily`) for interactive
+operation. Both paths call into the same daemon registry.
 
-A `--dry-run` flag on either path logs every step that would run without executing any of them.
+A `--dry-run` flag logs every step that would run without invoking any step
+function. It still appends a processing log.
 
-Processing logs (`_meta/processing-logs/YYYY-MM-DD.md`) record step name, start time, duration, and exit status for each run.
+Processing logs (`_meta/processing-logs/YYYY-MM-DD.md`) record step name,
+start time, duration, and exit status for each run.
+
+## Filesystem watcher
+
+The daemon watches the vault path via `fsnotify` for new inbox files.
+
+- **New note in `inbox/`** — triggers the inbox pipeline.
+- **Modified or removed notes** — no per-note retrieval update is currently
+  wired; run `sea-noise index` to rebuild the full index.
+
+Events debounce at the configured interval (default 200ms). The watcher scans
+existing `inbox/*.md` files when it starts.
+
+## Configuration
+
+The configuration file currently supports only the vault path:
+
+```toml
+[vault]
+path = "/absolute/path/to/vault"
+```
+
+The runtime accepts these command-line controls:
+
+- `serve --socket PATH` or `SEA_NOISE_SOCKET` for IPC;
+- `serve --no-ipc` to disable IPC;
+- `serve --no-watch` to disable the filesystem watcher;
+- `serve --watch-debounce-ms N` to set watcher debounce;
+- `serve --dry-run` to log steps without invoking them;
+- `serve --index-db PATH` to select the retrieval index;
+- `serve --cli-command NAME` and `serve --cli-args ...` for inference.
+
+`MIND_PALACE_VAULT` overrides `vault.path` if set. Paths must be absolute
+existing directories.
 
 ## IPC surface
 
-Unix domain socket at the path from `sea-noise.toml` (default `~/.sea-noise/daemon.sock`). JSON-RPC dispatch using `encoding/json` and the standard library's net package; no external RPC framework, no HTTP server.
+Unix domain socket at `--socket PATH`, then `$SEA_NOISE_SOCKET`, then
+`~/.sea-noise/daemon.sock`. Use `--no-ipc` to disable the listener. JSON-RPC
+dispatch uses `encoding/json` and the standard library's `net` package.
 
 ### Verbs
 
 | Verb | Purpose |
 |------|---------|
-| `skill.run` | Execute a named skill from `.agents/shared/skills/inference/` via the skill executor + transport. Caller passes skill name and arguments; daemon returns the skill output. |
-| `pipeline.trigger` | Fire one of `inbox`, `daily`, `weekly` immediately, bypassing the scheduler. Honors marker files unless `force: true` is passed. |
-| `vault.query` | Run a retrieval query against the SQLite index. Caller passes query string, mode (FTS / BM25 / graph), and limits. |
-| `index.refresh` | Re-index the vault. Caller may pass a glob to limit the refresh scope. |
-| `status` | Report daemon health: PID, uptime, last daily run, last weekly run, watcher state, queued pipeline triggers. |
+| `skill.run` | Execute a named embedded inference skill through the configured transport. |
+| `pipeline.trigger` | Fire `inbox`, `daily`, or `weekly`; marker gating applies. `force` is reserved and currently ignored. |
+| `vault.query` | Run a retrieval query against the SQLite index. |
+| `index.refresh` | Re-index the entire vault. |
+| `status` | Report protocol version, vault root, uptime, and dry-run state. |
 
-All verbs accept and return JSON objects with deterministic schemas.
+All verbs accept and return newline-delimited JSON objects with deterministic
+schemas. Any same-user process that can open the socket can call the verbs.
+
 
 ### Neutrality
 
 The IPC surface is harness-agnostic. The daemon does not know which agent or CLI is calling. There is no per-agent configuration, no harness-specific behavior, no negotiation. Any process that can connect to a Unix socket and speak JSON-RPC drives the daemon identically.
 
-## Filesystem watcher
-
-The daemon watches the vault path via `fsnotify` for created, modified, and removed events.
-
-- **New note in `inbox/`** — daemon triggers the inbox-process skill on the new file. This maintains `_meta/topic-frequencies.md`, `_meta/rejected-connections.md`, and `atlas/*` MOCs. Downstream consumers (`generate-signal`, `enrich-topics`, `export-research-packs`) see fresh inputs without waiting for the daily chain.
-- **Modified note anywhere** — daemon re-indexes the affected note in the SQLite FTS index. Searches stay current without a manual `sea-noise index` run.
-- **Removed note** — daemon removes the corresponding row from the FTS index.
-
-Events debounce at a configurable interval (default 500ms) to absorb the burst of writes that editors emit during a single save. The watcher depends only on `github.com/fsnotify/fsnotify`; no OS-specific syscall imports.
-
-## Configuration
-
-`sea-noise.toml` minimal example:
-
-```toml
-[vault]
-path = "/path/to/vault"
-
-[daemon]
-socket = "~/.sea-noise/daemon.sock"
-daily = "00:05"
-weekly = { day = "sunday", time = "01:00" }
-watcher_debounce_ms = 500
-shutdown_grace_seconds = 30
-```
-
-`MIND_PALACE_VAULT` environment variable overrides `vault.path` if set, for compatibility with the prototype's environment.
 
 ## What the daemon does not do
 
