@@ -1,3 +1,12 @@
+---
+type: reference
+status: stable
+sources:
+  - resource: MAINTAINERS.md
+  - resource: CONTRIBUTING.md
+  - resource: RELEASING.md
+  - resource: .github/CODEOWNERS
+---
 # Maintainer operating modes
 
 Sea Noise starts in solo-maintainer mode. This document records the minimum branch-protection posture without coupling the repository to a private automation system.
@@ -12,7 +21,7 @@ Use solo mode while one accountable maintainer owns the repository:
 - require resolved review conversations when pull requests are used; and
 - keep administrator bypass available only for recovery.
 
-Do not treat solo mode as permission to skip local verification. Every release still follows [`RELEASING.md`](../RELEASING.md).
+Do not treat solo mode as permission to skip local verification. Every release still follows [`RELEASING.md`](https://github.com/grosspoetrysystems/sea-noise/blob/8f9b4cdc9b8d5de5e6b5c0436b8c412e93f3bb45/RELEASING.md).
 
 ## Adding maintainers
 
