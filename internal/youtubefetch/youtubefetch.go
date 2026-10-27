@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"sea-noise/internal/markdown"
+	"sea-noise/internal/vault"
 	"sea-noise/internal/youtube"
 )
 
@@ -49,9 +50,9 @@ type Result struct {
 }
 
 // FetchTranscripts walks the configured search dirs, hydrating
-// transcripts in matching notes. Per-note fetch failures (no video
-// ID, no caption track, network error) are recorded in Failed and do
-// not abort the run; IO errors during walk surface immediately.
+// transcripts in matching notes. Per-note fetch and read failures are
+// recorded in Failed so one temporarily unavailable cloud note does not
+// abort the rest of the scan; directory errors still abort the run.
 func FetchTranscripts(ctx context.Context, client *youtube.Client, in Input) (Result, error) {
 	var result Result
 	dirs := in.SearchDirs
@@ -84,11 +85,7 @@ func FetchTranscripts(ctx context.Context, client *youtube.Client, in Input) (Re
 
 		for _, p := range paths {
 			rel, _ := filepath.Rel(in.VaultRoot, p)
-			outcome, err := fetchOne(ctx, client, p, langs)
-			if err != nil {
-				return result, err
-			}
-			switch outcome {
+			switch fetchOne(ctx, client, p, langs) {
 			case outcomeUpdated:
 				result.Updated = append(result.Updated, rel)
 			case outcomeSkipped:
@@ -109,33 +106,33 @@ const (
 	outcomeFailed
 )
 
-func fetchOne(ctx context.Context, client *youtube.Client, path string, langs []string) (outcomeKind, error) {
-	raw, err := os.ReadFile(path)
+func fetchOne(ctx context.Context, client *youtube.Client, path string, langs []string) outcomeKind {
+	raw, err := vault.ReadFileRetryContext(ctx, path)
 	if err != nil {
-		return 0, fmt.Errorf("youtubefetch: read %s: %w", path, err)
+		return outcomeFailed
 	}
 	content := string(raw)
 
 	if strings.Contains(content, "## Transcript") {
-		return outcomeSkipped, nil
+		return outcomeSkipped
 	}
 
 	fm, err := markdown.ParseFrontmatterYAML(content)
 	if err != nil {
-		return outcomeSkipped, nil
+		return outcomeSkipped
 	}
 	source, _ := fm.Fields["source"].(string)
 	if source == "" || (!strings.Contains(source, "youtube.com") && !strings.Contains(source, "youtu.be")) {
-		return outcomeSkipped, nil
+		return outcomeSkipped
 	}
 	videoID, ok := youtube.ExtractVideoID(source)
 	if !ok {
-		return outcomeFailed, nil
+		return outcomeFailed
 	}
 
 	transcript, err := client.FetchTranscript(ctx, videoID, langs)
 	if err != nil {
-		return outcomeFailed, nil
+		return outcomeFailed
 	}
 
 	// Mirror references/scripts/fetch-youtube-transcript.py:
@@ -144,7 +141,7 @@ func fetchOne(ctx context.Context, client *youtube.Client, path string, langs []
 	// frontmatter block survives untouched.
 	newContent := strings.TrimRight(content, " \t\n\v\f\r") + "\n\n## Transcript\n\n" + transcript + "\n"
 	if err := os.WriteFile(path, []byte(newContent), 0o644); err != nil {
-		return 0, fmt.Errorf("youtubefetch: write %s: %w", path, err)
+		return outcomeFailed
 	}
-	return outcomeUpdated, nil
+	return outcomeUpdated
 }

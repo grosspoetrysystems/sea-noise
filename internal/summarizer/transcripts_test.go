@@ -112,6 +112,30 @@ just a regular note, no transcript section
 	}
 }
 
+func TestEnrichTranscripts_ReadFailureDoesNotAbortLaterNotes(t *testing.T) {
+	vault := t.TempDir()
+	unreadable := filepath.Join(vault, "notes/references/a-unreadable.md")
+	if err := os.MkdirAll(filepath.Dir(unreadable), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(vault, "missing.md"), unreadable); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, vault, "notes/references/z-good.md", longTranscriptNote("Good"))
+
+	exec := newTestExecutor(t, "MOCK SUMMARY")
+	res, err := EnrichTranscripts(context.Background(), exec, EnrichTranscriptsInput{VaultRoot: vault})
+	if err != nil {
+		t.Fatalf("EnrichTranscripts: %v", err)
+	}
+	if len(res.Failed) != 1 || res.Failed[0] != "notes/references/a-unreadable.md" {
+		t.Fatalf("Failed = %v, want [notes/references/a-unreadable.md]", res.Failed)
+	}
+	if len(res.Updated) != 1 || res.Updated[0] != "notes/references/z-good.md" {
+		t.Fatalf("Updated = %v, want [notes/references/z-good.md]", res.Updated)
+	}
+}
+
 func TestEnrichTranscripts_PromptSentMatchesSkill(t *testing.T) {
 	vault := t.TempDir()
 	mustWriteFile(t, vault, "notes/references/podcast.md", longTranscriptNote("My Title"))

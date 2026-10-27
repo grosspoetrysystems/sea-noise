@@ -140,6 +140,37 @@ body
 	}
 }
 
+func TestFetchTranscripts_ReadFailureDoesNotAbortLaterNotes(t *testing.T) {
+	vault := t.TempDir()
+	unreadable := filepath.Join(vault, "notes/references/a-unreadable.md")
+	if err := os.MkdirAll(filepath.Dir(unreadable), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(vault, "missing.md"), unreadable); err != nil {
+		t.Fatal(err)
+	}
+	writeNote(t, vault, "notes/references/z-good.md", `---
+source: https://youtu.be/vid12345678
+---
+
+body
+`)
+
+	srv := newYouTubeServer(t, map[string]string{"vid12345678": "transcript"})
+	defer srv.Close()
+
+	res, err := youtubefetch.FetchTranscripts(context.Background(), newYouTubeClient(t, srv), youtubefetch.Input{VaultRoot: vault})
+	if err != nil {
+		t.Fatalf("FetchTranscripts: %v", err)
+	}
+	if len(res.Failed) != 1 || res.Failed[0] != "notes/references/a-unreadable.md" {
+		t.Fatalf("Failed = %v, want [notes/references/a-unreadable.md]", res.Failed)
+	}
+	if len(res.Updated) != 1 || res.Updated[0] != "notes/references/z-good.md" {
+		t.Fatalf("Updated = %v, want [notes/references/z-good.md]", res.Updated)
+	}
+}
+
 func TestFetchTranscripts_MissingDirsAreSkipped(t *testing.T) {
 	vault := t.TempDir()
 	// no notes/, no inbox/ — every search dir is missing
