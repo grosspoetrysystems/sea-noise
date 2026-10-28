@@ -11,7 +11,7 @@ The following are enforced by checks, not by declarations:
 | Rule | Enforced by | Refusal code |
 | --- | --- | --- |
 | The description has **Change**, **Verification**, and **Risk** sections, each filled in | `validate-metadata` (required check) | `REFUSE_TEMPLATE_INCOMPLETE`, `REFUSE_CHANGE_EMPTY`, `REFUSE_VERIFICATION_EMPTY`, `REFUSE_RISK_UNCHECKED` |
-| Every commit carries `Signed-off-by` with its author's email ([DCO](#legal)); merge commits are skipped | `validate-metadata` | `REFUSE_SIGNOFF_MISSING` |
+| Every commit carries `Signed-off-by` with its author's email ([DCO](#dco)); merge commits are skipped | `validate-metadata` | `REFUSE_SIGNOFF_MISSING` |
 | A bot opens pull requests only from a branch of this repository, which needs write access an administrator grants | `validate-metadata` | `REFUSE_BOT_UNAUTHORIZED` |
 | Contributors without write access have at most two open non-draft pull requests (drafts don't count) | `validate-metadata` | `REFUSE_OPEN_PR_LIMIT` |
 | Contributors without write access target the default branch | `validate-metadata` | `REFUSE_BASE_BRANCH` |
