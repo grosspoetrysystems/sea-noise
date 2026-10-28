@@ -19,21 +19,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from configure_repository import MODES, QUEUE_LABELS, REQUIRED_CHECKS, TAG_RULESET, protection
+from configure_repository import MODES, QUEUE_LABELS, REQUIRED_CHECKS, RISK_LABELS, TAG_RULESET, protection
 
 HELICOPTER = "grosspoetrysystems/helicopter"
 PRIVILEGED_TRIGGERS = ("pull_request_target", "workflow_run", "issue_comment")
-PINNED = re.compile(r"^(\./\S+|[\w.-]+/[\w./-]+@[0-9a-f]{40}|docker://\S+@sha256:[0-9a-f]{64})$")
+PINNED = re.compile(r"^(\./\S*|\$/\S*|[\w.-]+/[\w./-]+@[0-9a-f]{40}|docker://\S+@sha256:[0-9a-f]{64})$")
 USES = re.compile(r"^\s*(?:-\s+)?uses:\s*(\S+)")
 PR_HEAD = re.compile(r"head\.sha|head\.ref|head_ref|refs/pull/|merge_commit_sha")
 CHECKOUT = re.compile(r"uses:\s*actions/checkout@")
 TRUSTED_REF = "ref: ${{ github.event.repository.default_branch }}"
 
-# Helicopter's own files: its development tooling, README, and the helicopter skill (whose references replace
+# Helicopter's own files: its development tooling, README, the release-check action (adopters pin it), and the helicopter skill (whose references replace
 # the guides older releases shipped). Releases leave them out; an adopter's copy shouldn't have them.
 NOT_SHIPPED = (
     ".changes/",
     "AGENTS.md",
+    "action.yml",
     "CHANGELOG.md",
     "README.md",
     "assets/helicopter-header.webp",
@@ -58,6 +59,7 @@ NOT_SHIPPED = (
 DEV_MARKERS = {
     ".changes/": "HELICOPTER_",
     "AGENTS.md": "# Working on Helicopter",
+    "action.yml": "Helicopter release check",
     "CHANGELOG.md": "HELICOPTER_",
     "README.md": "helicopter-header.webp",
     "MAINTAINERS.md": "# Maintaining and adopting Helicopter",
@@ -204,10 +206,13 @@ def settings_findings(repository: str, fetch: Fetch) -> list[Finding]:
             configure,
         )
 
-    labels = read(f"repos/{repository}/labels?per_page=100", "queue labels")
+    labels = read(f"repos/{repository}/labels?per_page=100", "queue and risk labels")
     if labels is not None:
-        missing = sorted(set(QUEUE_LABELS) - {label["name"] for label in labels})
-        check("queue labels", not missing, f"missing {', '.join(missing)}; {configure}")
+        names = {label["name"] for label in labels}
+        missing_queue = sorted(set(QUEUE_LABELS) - names)
+        missing_risk = sorted(set(RISK_LABELS) - names)
+        check("queue labels", not missing_queue, f"missing {', '.join(missing_queue)}; {configure}")
+        check("risk labels", not missing_risk, f"missing {', '.join(missing_risk)}; {configure}")
 
     rulesets = read(f"repos/{repository}/rulesets", "release-tag ruleset")
     if rulesets is not None:

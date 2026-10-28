@@ -55,7 +55,6 @@ def turn(
     events: list[dict[str, Any]],
     now: datetime,
     admitted: bool | None = None,
-    ignored: frozenset[str] = frozenset(),
 ) -> Turn | None:
     """Return whose turn it is and since when, or None if the PR is not queued."""
     if pr.get("draft"):
@@ -84,7 +83,7 @@ def turn(
                 whose, since, reason = "reviewer", at, "author re-requested review"
         elif kind not in {"commented", "reviewed"}:
             continue
-        elif actor.get("type") == "Bot" or login in ignored:
+        elif actor.get("type") == "Bot":
             continue
         elif login == author:
             if whose == "author":
@@ -217,10 +216,10 @@ def admitted(github: GitHub, sha: str) -> bool | None:
     return finished[0]["conclusion"] == "success"
 
 
-def reconcile(github: GitHub, pr: dict[str, Any], now: datetime, nudge_hours: int, pause_hours: int, ignored: frozenset[str]) -> None:
+def reconcile(github: GitHub, pr: dict[str, Any], now: datetime, nudge_hours: int, pause_hours: int) -> None:
     number = pr["number"]
     events = github.request("GET", f"issues/{number}/timeline?per_page=100")
-    current = turn(pr, events, now, admitted(github, pr["head"]["sha"]), ignored)
+    current = turn(pr, events, now, admitted(github, pr["head"]["sha"]))
     have = {label["name"] for label in pr["labels"]} & set(LABELS.values())
     want, due = plan(current, now, nudge_hours, pause_hours) if current else (None, None)
 
@@ -243,7 +242,7 @@ def reconcile(github: GitHub, pr: dict[str, Any], now: datetime, nudge_hours: in
                 for event in events
                 if event.get("event") == "reviewed"
                 and event.get("author_association") in MAINTAINER
-                and event["user"]["login"] not in ignored | {pr["user"]["login"]}
+                and event["user"]["login"] != pr["user"]["login"]
             } - set(owners))
             github.request("POST", f"issues/{number}/comments", {"body": notice(due, current, now, pr["user"]["login"], owners)})
 
@@ -340,12 +339,18 @@ def check_for_update(github: GitHub) -> None:
     print(f"Helicopter {installed}: " + (f"opened an issue for {opened}" if opened else "up to date or already notified"))
 
 
-def queued(pr: dict[str, Any], team: bool, automation: frozenset[str] = frozenset()) -> bool:
+def repository_bot(pr: dict[str, Any]) -> bool:
+    """A bot on a branch of this repository: it needed write access an administrator granted."""
+    head = ((pr.get("head") or {}).get("repo") or {}).get("id")
+    return (pr.get("user") or {}).get("type") == "Bot" and head is not None and head == ((pr.get("base") or {}).get("repo") or {}).get("id")
+
+
+def queued(pr: dict[str, Any], team: bool) -> bool:
     """Open pull requests from outside contributors are queued; in team mode, everyone's.
 
-    Authorized bots (HELICOPTER_AUTOMATION_LOGINS) count as the maintainer's own delegated work.
+    Bots on branches of this repository count as the maintainer's own delegated work.
     """
-    outside = pr["author_association"] not in MAINTAINER and pr["user"]["login"] not in automation
+    outside = pr["author_association"] not in MAINTAINER and not repository_bot(pr)
     return pr["state"] == "open" and (team or outside)
 
 
@@ -370,7 +375,6 @@ def main() -> int:
     pause_hours = int(os.environ.get("HELICOPTER_QUEUE_PAUSE_HOURS") or 504)
     # Team mode queues members' pull requests too; other modes queue outside contributions only.
     team = os.environ.get("HELICOPTER_MODE") == "team"
-    ignored = frozenset(filter(None, re.split(r"[\s,]+", os.environ.get("HELICOPTER_AUTOMATION_LOGINS", ""))))
     now = datetime.now(timezone.utc)
 
     # ponytail: about 3 calls per open PR per sweep (check runs, timeline, one per linked issue until flagged), so the
@@ -378,15 +382,15 @@ def main() -> int:
     pulls = [github.request("GET", f"pulls/{args.pr}")] if args.pr else github.request("GET", "pulls?state=open&per_page=100")
     work = []
     for pr in pulls:
-        if queued(pr, team, ignored):
+        if queued(pr, team):
             work.append(pr)
         else:
-            print(f"#{pr['number']}: skipped ({pr['state'] if pr['state'] != 'open' else 'maintainer or authorized automation'})")
+            print(f"#{pr['number']}: skipped ({pr['state'] if pr['state'] != 'open' else 'maintainer or repository bot'})")
     if work:
         # Only when something needs a label: an idle repository without the labels stays green.
         require_labels(github, set(LABELS.values()) | {SUPERSEDED})
     for pr in work:
-        reconcile(github, pr, now, nudge_hours, pause_hours, ignored)
+        reconcile(github, pr, now, nudge_hours, pause_hours)
     if not args.pr:
         check_for_update(github)
     return 0

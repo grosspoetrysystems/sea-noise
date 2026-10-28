@@ -94,7 +94,7 @@ class ValidateBodyTests(unittest.TestCase):
         body = (
             TEMPLATE.read_text(encoding="utf-8")
             .replace("Closes #", "Fixes the queue label.\n\nCloses #12")
-            .replace("<commands and concise result; project CI verifies independently>", "unittest: 40 passed")
+            .replace("<commands and results; say what you couldn't run or test. Project CI verifies independently.>", "unittest: 40 passed")
             .replace("- [ ] None of the above", "- [x] None of the above")
         )
         self.assertEqual(codes(body), set())
@@ -168,33 +168,33 @@ class ValidateBodyTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
 
 
-class AuthorizedAutomationTests(unittest.TestCase):
+class RepositoryBotTests(unittest.TestCase):
     def bot_event(self, login: str = "dependabot[bot]", head_repository_id: int = 100) -> dict[str, object]:
         event = owner_event(author_type="Bot", sender_type="Bot", head_repository_id=head_repository_id)
         event["pull_request"]["user"]["login"] = login
         event["sender"]["login"] = login
         return event
 
-    def test_listed_bot_on_a_repository_branch_is_admitted(self) -> None:
-        result = run_cli(self.bot_event(), "--automation-logins", "dependabot[bot], renovate[bot]")
-        self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertIn("Authorized automation", result.stdout)
+    def test_any_bot_on_a_repository_branch_is_admitted_without_a_list(self) -> None:
+        for login in ("dependabot[bot]", "renovate[bot]"):
+            result = run_cli(self.bot_event(login=login))
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertIn("authorized by its write access", result.stdout)
 
-    def test_unlisted_bot_or_fork_is_refused_even_with_a_valid_description(self) -> None:
-        for event, logins in (
-            (self.bot_event(login="other[bot]"), "dependabot[bot]"),
-            (self.bot_event(head_repository_id=101), "dependabot[bot]"),
-            (self.bot_event(), ""),
-        ):
+    def test_bot_on_a_fork_or_acting_for_another_sender_is_refused(self) -> None:
+        fork = self.bot_event(head_repository_id=101)
+        relayed = self.bot_event()
+        relayed["sender"]["login"] = "someone-else[bot]"
+        for event in (fork, relayed):
             event["pull_request"]["body"] = VALID
-            result = run_cli(event, "--automation-logins", logins)
+            result = run_cli(event)
             self.assertEqual(result.returncode, 1, result.stdout)
             self.assertIn("REFUSE_BOT_UNAUTHORIZED", result.stdout)
 
-    def test_listed_login_must_be_a_bot(self) -> None:
+    def test_a_person_named_like_a_bot_is_not_exempt(self) -> None:
         event = owner_event(author_association="NONE")
         event["pull_request"]["user"]["login"] = event["sender"]["login"] = "dependabot[bot]"
-        self.assertEqual(run_cli(event, "--automation-logins", "dependabot[bot]").returncode, 1)
+        self.assertEqual(run_cli(event).returncode, 1)
 
 
 def commit(sha: str, email: str, message: str, parents: int = 1) -> dict[str, object]:

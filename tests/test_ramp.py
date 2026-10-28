@@ -69,10 +69,9 @@ class TurnTests(unittest.TestCase):
                   comment(4, "github-actions[bot]", "NONE", body="PR Reviewer Guide", kind="Bot")]
         self.assertTurn(events, "author", 3)
 
-    def test_bots_others_and_listed_automation_do_not_count_as_maintainers(self):
-        events = [comment(2, "dependabot[bot]", "COLLABORATOR", kind="Bot"), comment(3, "bob"),
-                  comment(4, "roboomp", "COLLABORATOR")]
-        self.assertTurn(events, "reviewer", 0, ignored=frozenset({"roboomp"}))
+    def test_bots_and_others_do_not_count_as_maintainers(self):
+        events = [comment(2, "dependabot[bot]", "COLLABORATOR", kind="Bot"), comment(3, "bob")]
+        self.assertTurn(events, "reviewer", 0)
 
     def test_refused_admission_is_the_authors_turn(self):
         self.assertEqual(turn(PR, [], NOW, admitted=False).whose, "author")
@@ -120,12 +119,14 @@ class QueueScopeTests(unittest.TestCase):
     def test_closed_pull_requests_are_never_queued(self):
         self.assertFalse(queued({**PR, "state": "closed", "author_association": "MEMBER"}, team=True))
 
-    def test_authorized_automation_is_queued_like_maintainer_work(self):
-        pr = {**PR, "state": "open", "author_association": "NONE", "user": {"login": "dependabot[bot]"}}
-        bots = frozenset({"dependabot[bot]"})
-        self.assertFalse(queued(pr, team=False, automation=bots))
-        self.assertTrue(queued(pr, team=True, automation=bots))
-        self.assertTrue(queued(pr, team=False))
+    def test_repository_bots_are_queued_like_maintainer_work_but_fork_bots_are_not(self):
+        repo = {"repo": {"id": 100}}
+        bot = {**PR, "state": "open", "author_association": "NONE", "user": {"login": "renovate[bot]", "type": "Bot"},
+               "head": repo, "base": repo}
+        self.assertFalse(queued(bot, team=False))
+        self.assertTrue(queued(bot, team=True))
+        self.assertTrue(queued({**bot, "head": {"repo": {"id": 101}}}, team=False))
+        self.assertTrue(queued({**bot, "head": {"repo": None}}, team=False))  # deleted fork
 
 
 def cross_reference(number, merged_day=None, is_pr=True):

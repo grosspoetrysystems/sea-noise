@@ -9,7 +9,7 @@ Closes #
 Commands and results:
 
 ```text
-<commands and concise result; project CI verifies independently>
+<commands and results; say what you couldn't run or test. Project CI verifies independently.>
 ```
 
 ## Risk

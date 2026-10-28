@@ -49,6 +49,5 @@ jobs:
           PR_NUMBER: ${{ github.event.issue.number }}
           HELICOPTER_QUEUE_NUDGE_HOURS: ${{ vars.HELICOPTER_QUEUE_NUDGE_HOURS }}
           HELICOPTER_QUEUE_PAUSE_HOURS: ${{ vars.HELICOPTER_QUEUE_PAUSE_HOURS }}
-          HELICOPTER_AUTOMATION_LOGINS: ${{ vars.HELICOPTER_AUTOMATION_LOGINS }}
           HELICOPTER_MODE: ${{ vars.HELICOPTER_MODE || 'contributor' }}
         run: python3 trusted-base/scripts/pr_queue.py ${PR_NUMBER:+--pr "$PR_NUMBER"}

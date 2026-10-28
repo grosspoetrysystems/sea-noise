@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from check_install import file_findings, settings_findings, workflow_problems  # noqa: E402
-from configure_repository import QUEUE_LABELS, TAG_RULESET  # noqa: E402
+from configure_repository import QUEUE_LABELS, RISK_LABELS, TAG_RULESET  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA = "3d3c42e5aac5ba805825da76410c181273ba90b1"
@@ -97,7 +97,7 @@ def configured(mode: str = "contributor") -> dict:
             200, {"default_workflow_permissions": "read", "can_approve_pull_request_reviews": False}
         ),
         f"repos/{REPO}/actions/permissions/fork-pr-contributor-approval": (200, {"approval_policy": "first_time_contributors"}),
-        f"repos/{REPO}/labels?per_page=100": (200, [{"name": name} for name in QUEUE_LABELS]),
+        f"repos/{REPO}/labels?per_page=100": (200, [{"name": name} for name in (*QUEUE_LABELS, *RISK_LABELS)]),
         f"repos/{REPO}/rulesets": (200, [{"id": 7, "name": TAG_RULESET}]),
         f"repos/{REPO}/rulesets/7": (200, {"enforcement": "active", "rules": [{"type": "update"}, {"type": "deletion"}]}),
         f"repos/{REPO}/vulnerability-alerts": (204, None),
@@ -124,7 +124,7 @@ class SettingsTests(unittest.TestCase):
         responses[f"repos/{REPO}"][1]["web_commit_signoff_required"] = False
         self.assertEqual(
             failing(responses),
-            ["reviews for contributor mode", "no force pushes or branch deletion", "queue labels", "sign-off on web commits"],
+            ["reviews for contributor mode", "no force pushes or branch deletion", "queue labels", "risk labels", "sign-off on web commits"],
         )
 
     def test_solo_protection_fails_a_contributor_mode_repository(self):

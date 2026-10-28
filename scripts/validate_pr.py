@@ -15,7 +15,8 @@ REQUIRED_SECTIONS = ("Change", "Verification", "Risk")
 PLACEHOLDERS = (
     "Closes #",
     "Commands and results:",
-    "<commands and concise result; project CI verifies independently>",
+    "<commands and results; say what you couldn't run or test. Project CI verifies independently.>",
+    "<commands and concise result; project CI verifies independently>",  # earlier wording, still in open pull requests
     "Check every area this pull request changes:",
     "Details and mitigations:",
 )
@@ -61,15 +62,16 @@ def _metadata_exempt(event: dict[str, Any], mode: str, solo_maintainer_id: int) 
     return owner.get("type") == "Organization" or owner.get("id") == solo_maintainer_id
 
 
-def _authorized_automation(event: dict[str, Any], logins: frozenset[str]) -> bool:
-    """A maintainer-listed bot (HELICOPTER_AUTOMATION_LOGINS) on a branch of this repository."""
+def _repository_bot(event: dict[str, Any]) -> bool:
+    """A bot pushing a branch of this repository. GitHub allows that only with write access an administrator
+    granted, so the grant is the authorization; there is no list to keep."""
     pull_request = event.get("pull_request") or {}
     author = pull_request.get("user") or {}
     sender = event.get("sender") or {}
     repository_id = (event.get("repository") or {}).get("id")
     return (
         author.get("type") == "Bot"
-        and author.get("login") in logins
+        and bool(author.get("login"))
         and sender.get("login") == author.get("login")
         and type(repository_id) is int
         and ((pull_request.get("base") or {}).get("repo") or {}).get("id") == repository_id
@@ -209,11 +211,6 @@ def main() -> int:
         help="immutable numeric GitHub user ID authorized in solo mode",
     )
     parser.add_argument(
-        "--automation-logins",
-        default="",
-        help="maintainer-authorized bot logins (HELICOPTER_AUTOMATION_LOGINS), comma or space separated",
-    )
-    parser.add_argument(
         "--commits",
         type=Path,
         help="JSON from the pull request commits endpoint; checks DCO sign-off when given",
@@ -253,15 +250,15 @@ def main() -> int:
         print(f"{mode.capitalize()}-mode metadata exemption accepted for the trusted maintainer.")
         return 0
 
-    if _authorized_automation(event, frozenset(filter(None, re.split(r"[\s,]+", args.automation_logins)))):
-        print("Authorized automation exemption accepted. Human review is still required.")
+    if _repository_bot(event):
+        print("Bot on a branch of this repository: authorized by its write access. Human review is still required.")
         return 0
 
     pull_request = event.get("pull_request") or {}
     if (pull_request.get("user") or {}).get("type") == "Bot":
         print(
-            "REFUSE_BOT_UNAUTHORIZED: bots need maintainer authorization before opening pull requests. "
-            "Their operator requests it with the Automation authorization issue form."
+            "REFUSE_BOT_UNAUTHORIZED: bots open pull requests only from a branch of this repository, which needs "
+            "write access an administrator grants. Agents submit through a person's account; that person signs off."
         )
         return 1
 
