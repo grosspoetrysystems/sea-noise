@@ -17,6 +17,8 @@ tempor/
 # self-ignores (Python writes .venv/.gitignore with `*`); this rule is
 # explicit for clarity. requirements.txt is committed.
 .venv/
+__pycache__/
+*.py[cod]
 
 # Go build / test output
 *.exe

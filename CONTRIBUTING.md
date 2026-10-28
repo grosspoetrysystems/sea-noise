@@ -6,6 +6,20 @@ Keep changes small, reviewable, and reproducible.
 
 Open or reference an issue before starting a feature, public API change, dependency change, security change, or release/workflow change. Focused bug fixes and documentation corrections may proceed without issue-first review.
 
+The following are enforced by checks, not by declarations:
+
+| Rule | Enforced by | Refusal code |
+| --- | --- | --- |
+| The description has **Change**, **Verification**, and **Risk** sections, each filled in | `validate-metadata` (required check) | `REFUSE_TEMPLATE_INCOMPLETE`, `REFUSE_CHANGE_EMPTY`, `REFUSE_VERIFICATION_EMPTY`, `REFUSE_RISK_UNCHECKED` |
+| Every commit carries `Signed-off-by` with its author's email ([DCO](#legal)); merge commits are skipped | `validate-metadata` | `REFUSE_SIGNOFF_MISSING` |
+| A bot opens pull requests only from a branch of this repository, which needs write access an administrator grants | `validate-metadata` | `REFUSE_BOT_UNAUTHORIZED` |
+| Contributors without write access have at most two open non-draft pull requests (drafts don't count) | `validate-metadata` | `REFUSE_OPEN_PR_LIMIT` |
+| Contributors without write access target the default branch | `validate-metadata` | `REFUSE_BASE_BRANCH` |
+| Contributors without write access change at most 5,000 lines and 300 files per pull request | `validate-metadata` | `REFUSE_TOO_LARGE` |
+| Merging needs the required checks to pass and the reviews your mode requires; nobody can force-push or delete the default branch | Branch protection set by `configure_repository.py` | — |
+| Changes to workflows, security, dependencies, release machinery, policy, or agent instructions need the owners in `.github/CODEOWNERS` (contributor and team modes) | Branch protection (code-owner review) | — |
+| Helicopter reruns its own checks; your report of what you ran is context, not evidence | Project CI | — |
+
 ## Pull requests
 
 Each pull request should:

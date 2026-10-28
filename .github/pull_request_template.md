@@ -6,13 +6,15 @@ Closes #
 
 ## Verification
 
-Commands and observed results:
+Commands and results:
 
 ```text
-
+<commands and results; say what you couldn't run or test. Project CI verifies independently.>
 ```
 
 ## Risk
+
+Check every area this pull request changes:
 
 - [ ] Dependencies or lockfiles
 - [ ] Authentication, authorization, secrets, or other security-sensitive code
@@ -24,17 +26,6 @@ Details and mitigations:
 
 <!-- Explain checked risks, or write "None". -->
 
-## AI / automation
-
-Select exactly one:
-
-- [ ] Human-authored
-- [ ] AI-assisted
-- [ ] Agent-authored
-- [ ] Authorized automation
-
-For agent-authored or authorized-automation work, include the accountable human, run identifier, base SHA, capabilities, and a sanitized provenance reference. Never publish raw transcripts containing secrets or private source material.
-
 ## Reviewer focus
 
-<!-- Name uncertain behavior or areas needing particular human attention. -->
+<!-- Optional: uncertain behavior or areas needing particular human attention. Keep it short. -->

@@ -1,0 +1,161 @@
+name: contribution-intake
+
+on:
+  # Privileged by design: needs a write token and the review key. It never checks
+  # out or runs pull request code; scripts/check_install.py checks that.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: read
+
+# An unset or invalid mode fails closed to contributor mode. The solo ID is
+# used only in solo mode; team mode trusts same-repository members and collaborators.
+env:
+  HELICOPTER_MODE: ${{ vars.HELICOPTER_MODE || 'contributor' }}
+  HELICOPTER_SOLO_MAINTAINER_ID: ${{ vars.HELICOPTER_SOLO_MAINTAINER_ID || '0' }}
+
+concurrency:
+  group: contribution-intake-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out validator from protected default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: trusted-base
+          persist-credentials: false
+          sparse-checkout: scripts
+          fetch-depth: 1
+
+      # Reads pull request data through the API only; nothing from the branch runs.
+      # HELICOPTER_SIGNOFF=off turns the DCO check off for projects using a CLA.
+      - name: Fetch commits and the author's open pull requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          gh api --paginate --slurp "repos/$REPOSITORY/pulls/$PR_NUMBER/commits?per_page=100" > "$RUNNER_TEMP/commits.json"
+          # The live list, not search: search lags and can miss a just-opened pull request.
+          gh api --paginate "repos/$REPOSITORY/pulls?state=open&per_page=100" \
+            --jq ".[] | select(.user.login == \"$AUTHOR\" and (.draft | not)) | .number" | wc -l > "$RUNNER_TEMP/open_prs"
+
+      - name: Validate pull request metadata
+        env:
+          EVENT_PATH: ${{ github.event_path }}
+          HELICOPTER_SIGNOFF: ${{ vars.HELICOPTER_SIGNOFF || 'dco' }}
+          HELICOPTER_OPEN_PR_LIMIT: ${{ vars.HELICOPTER_OPEN_PR_LIMIT || '2' }}
+          HELICOPTER_MAX_CHANGED_LINES: ${{ vars.HELICOPTER_MAX_CHANGED_LINES || '5000' }}
+          HELICOPTER_MAX_CHANGED_FILES: ${{ vars.HELICOPTER_MAX_CHANGED_FILES || '300' }}
+        run: |
+          commits=()
+          if [ "$HELICOPTER_SIGNOFF" != off ]; then commits=(--commits "$RUNNER_TEMP/commits.json"); fi
+          python3 trusted-base/scripts/validate_pr.py "$EVENT_PATH" \
+            --mode "$HELICOPTER_MODE" \
+            --solo-maintainer-id "$HELICOPTER_SOLO_MAINTAINER_ID" \
+            "${commits[@]}" \
+            --open-prs "$(cat "$RUNNER_TEMP/open_prs")" \
+            --open-pr-limit "$HELICOPTER_OPEN_PR_LIMIT" \
+            --max-changed-lines "$HELICOPTER_MAX_CHANGED_LINES" \
+            --max-changed-files "$HELICOPTER_MAX_CHANGED_FILES"
+
+      # Security invariant: no job in this privileged workflow checks out or
+      # executes the pull request head. Project builds/tests belong in a separate
+      # pull_request workflow with no secrets and read-only permissions.
+
+  # Advisory path-derived labels. It never changes admission and writes a summary
+  # instead of posting a comment or asking the author to change their boxes.
+  risk-labels:
+    needs: validate-metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Check out risk labeller from protected default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: trusted-base
+          persist-credentials: false
+          sparse-checkout: |
+            scripts
+            .gitattributes
+          fetch-depth: 1
+
+      - name: Derive advisory risk labels
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 trusted-base/scripts/risk_labels.py --pr "$PR_NUMBER"
+
+  # Ramp step 2: PR-Agent review on cheap inference, only after admission passes
+  # and only when a key is configured. Pinned by image digest. Its rules live in
+  # .pr_agent.toml, read from the default branch. It reads the pull request
+  # through the API and posts one persistent review comment; it never checks
+  # out or executes contributor code.
+  first-review:
+    needs: validate-metadata
+    if: ${{ github.event.sender.type != 'Bot' && !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    env:
+      HAS_REVIEW_KEY: ${{ secrets.HELICOPTER_REVIEW_KEY != '' }}
+    steps:
+      - name: Review pull request
+        if: ${{ env.HAS_REVIEW_KEY == 'true' }}
+        uses: docker://pragent/pr-agent@sha256:31b9aac6ab067bada9a0c1b001d30ebc500ea4487e00a93c18c59b9ef5fa66db # 0.47.0-github_action
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          OPENROUTER__KEY: ${{ secrets.HELICOPTER_REVIEW_KEY }}
+          # Here, not in .pr_agent.toml: if that file fails to load, unset means on,
+          # and describe would overwrite the pull request body admission checks.
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "false"
+          github_action_config.auto_improve: "false"
+
+  # Queue state. This job holds the write token and no secret.
+  queue:
+    needs: [validate-metadata, first-review]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      checks: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Check out queue from protected default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: trusted-base
+          persist-credentials: false
+          sparse-checkout: scripts
+          fetch-depth: 1
+
+      - name: Update queue state
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HELICOPTER_QUEUE_NUDGE_HOURS: ${{ vars.HELICOPTER_QUEUE_NUDGE_HOURS }}
+          HELICOPTER_QUEUE_PAUSE_HOURS: ${{ vars.HELICOPTER_QUEUE_PAUSE_HOURS }}
+        run: python3 trusted-base/scripts/pr_queue.py --pr "$PR_NUMBER"
