@@ -1,14 +1,19 @@
 # Public project ownership
-* @grosspoetrysystems
+* @thekidnamedkd
 
-/.github/ @grosspoetrysystems
-/scripts/ @grosspoetrysystems
-/cmd/ @grosspoetrysystems
-/internal/ @grosspoetrysystems
-/go.mod @grosspoetrysystems
-/go.sum @grosspoetrysystems
-/AGENTS.md @grosspoetrysystems
-/SECURITY.md @grosspoetrysystems
-/CONTRIBUTING.md @grosspoetrysystems
-/MAINTAINERS.md @grosspoetrysystems
-/CODE_OF_CONDUCT.md @grosspoetrysystems
+/.github/ @thekidnamedkd
+/.github/workflows/ @thekidnamedkd
+/scripts/ @thekidnamedkd
+/cmd/ @thekidnamedkd
+/internal/ @thekidnamedkd
+/go.mod @thekidnamedkd
+/go.sum @thekidnamedkd
+/requirements.txt @thekidnamedkd
+/.poolboy/sources.lock.json @thekidnamedkd
+/AGENTS.md @thekidnamedkd
+/SECURITY.md @thekidnamedkd
+/CONTRIBUTING.md @thekidnamedkd
+/MAINTAINERS.md @thekidnamedkd
+/CODE_OF_CONDUCT.md @thekidnamedkd
+/lefthook.yml @thekidnamedkd
+/.golangci.yml @thekidnamedkd
