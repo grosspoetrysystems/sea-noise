@@ -9,8 +9,9 @@ on:
 permissions:
   contents: read
 
-# An unset or invalid mode fails closed to contributor mode. The solo ID is
-# used only in solo mode; team mode trusts same-repository members and collaborators.
+# An unset or invalid mode fails closed to `contributor`. The solo ID is
+# used only in solo mode; team mode trusts same-repository authors with
+# repository write-level access.
 env:
   HELICOPTER_MODE: ${{ vars.HELICOPTER_MODE || 'contributor' }}
   HELICOPTER_SOLO_MAINTAINER_ID: ${{ vars.HELICOPTER_SOLO_MAINTAINER_ID || '0' }}
@@ -52,6 +53,8 @@ jobs:
 
       - name: Validate pull request metadata
         env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           EVENT_PATH: ${{ github.event_path }}
           HELICOPTER_SIGNOFF: ${{ vars.HELICOPTER_SIGNOFF || 'dco' }}
           HELICOPTER_OPEN_PR_LIMIT: ${{ vars.HELICOPTER_OPEN_PR_LIMIT || '2' }}

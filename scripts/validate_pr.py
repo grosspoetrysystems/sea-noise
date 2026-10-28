@@ -5,11 +5,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+from pr_queue import GitHub
+
+MaintainerLookup = Callable[[str], bool]
 
 REQUIRED_SECTIONS = ("Change", "Verification", "Risk")
 PLACEHOLDERS = (
@@ -28,7 +33,12 @@ class Refusal:
     message: str
 
 
-def _metadata_exempt(event: dict[str, Any], mode: str, solo_maintainer_id: int) -> bool:
+def _metadata_exempt(
+    event: dict[str, Any],
+    mode: str,
+    solo_maintainer_id: int,
+    is_maintainer: MaintainerLookup | None = None,
+) -> bool:
     pull_request = event.get("pull_request") or {}
     author = pull_request.get("user") or {}
     base_repository = (pull_request.get("base") or {}).get("repo") or {}
@@ -54,7 +64,7 @@ def _metadata_exempt(event: dict[str, Any], mode: str, solo_maintainer_id: int) 
         return False
 
     if mode == "team":
-        return pull_request.get("author_association") in {"OWNER", "MEMBER", "COLLABORATOR"}
+        return bool(is_maintainer and is_maintainer(author.get("login", "")))
 
     if mode != "solo" or author.get("id") != solo_maintainer_id:
         return False
@@ -246,7 +256,11 @@ def main() -> int:
         solo_maintainer_id = 0
 
     mode = args.mode if args.mode in {"solo", "contributor", "team"} else "contributor"
-    if _metadata_exempt(event, mode, solo_maintainer_id):
+    token = os.environ.get("GITHUB_TOKEN")
+    repository = os.environ.get("GITHUB_REPOSITORY")
+    github = GitHub(repository, token) if token and repository else None
+    is_maintainer: MaintainerLookup = github.is_maintainer if github else lambda _login: False
+    if _metadata_exempt(event, mode, solo_maintainer_id, is_maintainer):
         print(f"{mode.capitalize()}-mode metadata exemption accepted for the trusted maintainer.")
         return 0
 
@@ -270,7 +284,7 @@ def main() -> int:
             print(f"REFUSE_EVENT_INVALID: commits: {error}")
             return 2
         refusals += validate_signoff(commits)
-    if pull_request.get("author_association") not in {"OWNER", "MEMBER", "COLLABORATOR"}:
+    if not is_maintainer((pull_request.get("user") or {}).get("login", "")):
         refusals += validate_open_prs(args.open_prs, _limit(args.open_pr_limit, 2))
         default_branch = (event.get("repository") or {}).get("default_branch") or ""
         refusals += validate_shape(
