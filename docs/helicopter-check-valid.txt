@@ -1,0 +1,1 @@
+Temporary valid draft used to register Helicopter admission checks; this branch is deleted after configuration.
