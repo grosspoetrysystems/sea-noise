@@ -13,6 +13,7 @@ from risk_labels import (  # noqa: E402
     comparison,
     derive,
     generated_patterns,
+    large,
     set_labels,
     summary,
     ticked_boxes,
@@ -103,7 +104,29 @@ class UnknownDataTests(unittest.TestCase):
 
     def test_missing_changed_file_data_is_unknown(self):
         github = FakeGitHub({("GET", "pulls/9/files?per_page=100"): None})
-        self.assertEqual(changed_paths(github, 9, {"changed_files": 1}), ([], True))
+        self.assertEqual(changed_paths(github, 9, {"changed_files": 1}), ({}, True))
+
+
+    def test_missing_change_counts_are_unknown_but_keep_the_path(self):
+        github = FakeGitHub({("GET", "pulls/9/files?per_page=100"): [{"filename": "a.py"}]})
+        self.assertEqual(changed_paths(github, 9, {"changed_files": 1}), ({"a.py": 0}, True))
+
+
+class SplitSizeTests(unittest.TestCase):
+    def test_threshold_is_exceeded_not_reached(self):
+        self.assertIsNone(large({"src/a.py": 1000}, []))
+        self.assertIsNotNone(large({"src/a.py": 1001}, []))
+        self.assertIsNone(large({f"src/{n}.py": 1 for n in range(50)}, []))
+        self.assertIsNotNone(large({f"src/{n}.py": 1 for n in range(51)}, []))
+
+    def test_lockfiles_and_generated_files_do_not_count(self):
+        files = {"pnpm-lock.yaml": 9000, "go.sum": 4000, "dist/app.min.js": 5000, "src/a.py": 10}
+        self.assertIsNone(large(files, ["dist/*"]))
+        # A manifest is reviewable code; only lockfiles are excluded.
+        self.assertIsNotNone(large({"package.json": 1001}, []))
+
+    def test_size_is_not_compared_with_the_risk_boxes(self):
+        self.assertEqual(comparison({"risk:large"}, []), "Paths and the author's Risk boxes agree.")
 
 
 class SummaryTests(unittest.TestCase):

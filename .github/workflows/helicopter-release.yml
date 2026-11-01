@@ -20,4 +20,4 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: .github/helicopter
-      - uses: grosspoetrysystems/helicopter@c0060b5265e6b5ec013054e783a03ee710c1307c # v0.8.1
+      - uses: grosspoetrysystems/helicopter@b6511f85b8cdd6605ae87343bcfa23e4a564e407 # v0.9.1

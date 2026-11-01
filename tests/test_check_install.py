@@ -25,6 +25,13 @@ TRUSTED_CHECKOUT = (
 )
 
 
+class LabelTests(unittest.TestCase):
+    def test_label_descriptions_fit_githubs_limit(self):
+        # GitHub rejects label descriptions over 100 characters, which fails the configurator.
+        for name, (_, description) in {**QUEUE_LABELS, **RISK_LABELS}.items():
+            self.assertLessEqual(len(description), 100, name)
+
+
 class WorkflowInvariants(unittest.TestCase):
     def test_pinned_actions_and_trusted_checkout_pass(self):
         steps = TRUSTED_CHECKOUT + f"      - uses: docker://pragent/pr-agent@sha256:{DIGEST}\n"
