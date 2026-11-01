@@ -86,15 +86,16 @@ var BackoffSchedule = []time.Duration{
 // MaxRetries equals len(BackoffSchedule).
 var MaxRetries = len(BackoffSchedule)
 
-const (
-	bulkReadTimeout  = 2 * time.Second
-	dedupReadTimeout = 25 * time.Millisecond
-)
+const dedupReadTimeout = 25 * time.Millisecond
+
+var readVaultFile = vault.ReadFileRetryContext
 
 var readBulkFile = func(ctx context.Context, path string) ([]byte, error) {
-	fileCtx, cancel := context.WithTimeout(ctx, bulkReadTimeout)
-	defer cancel()
-	return vault.ReadFileRetryContext(fileCtx, path)
+	// Let the caller's pipeline context govern cloud materialization.
+	// vault.ReadFileRetryContext already applies the shared bounded
+	// retry policy; a shorter child timeout turns delayed iCloud files
+	// into false unreadable results.
+	return readVaultFile(ctx, path)
 }
 
 func readDedupFile(ctx context.Context, path string) ([]byte, error) {
@@ -177,12 +178,29 @@ func HydrateStubs(ctx context.Context, crawler crawl.Crawler, in HydrateInput) (
 	}
 
 	paths := mdPaths(entries, inboxDir)
-	for _, p := range paths {
+	for i, p := range paths {
+		if err := ctx.Err(); err != nil {
+			if errors.Is(err, context.Canceled) {
+				return result, err
+			}
+			for _, remaining := range paths[i:] {
+				rel, _ := filepath.Rel(in.VaultRoot, remaining)
+				result.Unreadable = append(result.Unreadable, rel)
+			}
+			break
+		}
 		rel, _ := filepath.Rel(in.VaultRoot, p)
 		raw, err := readBulkFile(ctx, p)
 		if err != nil {
-			if ctx.Err() != nil {
-				return result, ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				return result, err
+			}
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				for _, remaining := range paths[i:] {
+					remainingRel, _ := filepath.Rel(in.VaultRoot, remaining)
+					result.Unreadable = append(result.Unreadable, remainingRel)
+				}
+				break
 			}
 			result.Unreadable = append(result.Unreadable, rel)
 			continue
@@ -215,8 +233,19 @@ func HydrateStubs(ctx context.Context, crawler crawl.Crawler, in HydrateInput) (
 
 		markdownText, err := crawlOne(ctx, crawler, source)
 		if err != nil {
-			if ctx.Err() != nil {
-				return result, ctx.Err()
+			if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+				return result, context.Canceled
+			}
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				for _, remaining := range paths[i:] {
+					remainingRel, _ := filepath.Rel(in.VaultRoot, remaining)
+					result.Unreadable = append(result.Unreadable, remainingRel)
+				}
+				break
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				result.Unreadable = append(result.Unreadable, rel)
+				continue
 			}
 			if err := appendFailure(in.VaultRoot, ManifestEntry{
 				URL:       source,

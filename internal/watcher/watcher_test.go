@@ -190,6 +190,57 @@ func TestWatcher_InboxCreateFiresAction(t *testing.T) {
 	_ = f.awaitInbox(t)
 }
 
+func TestWatcher_InboxCreateWaitsForStableWrite(t *testing.T) {
+	root := t.TempDir()
+	inbox := filepath.Join(root, "inbox")
+	if err := os.MkdirAll(inbox, 0o755); err != nil {
+		t.Fatalf("mkdir inbox: %v", err)
+	}
+	got := make(chan string, 1)
+	w, err := watcher.New(watcher.Config{
+		VaultRoot:   root,
+		Debounce:    20 * time.Millisecond,
+		InboxSettle: 150 * time.Millisecond,
+		Actions: watcher.Actions{
+			OnInboxCreate: func(_ context.Context, path string) {
+				raw, err := os.ReadFile(filepath.Join(inbox, "mobile.md"))
+				if err != nil {
+					t.Errorf("read callback input %q: %v", path, err)
+					return
+				}
+				got <- string(raw)
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("watcher.New: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := w.Start(ctx); err != nil {
+		t.Fatalf("watcher.Start: %v", err)
+	}
+	defer w.Stop()
+
+	note := filepath.Join(inbox, "mobile.md")
+	if err := os.WriteFile(note, []byte("partial"), 0o644); err != nil {
+		t.Fatalf("write partial note: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if err := os.WriteFile(note, []byte("complete"), 0o644); err != nil {
+		t.Fatalf("write complete note: %v", err)
+	}
+
+	select {
+	case content := <-got:
+		if content != "complete" {
+			t.Fatalf("callback saw %q, want complete content", content)
+		}
+	case <-time.After(eventTimeout):
+		t.Fatalf("stable inbox callback did not fire within %v", eventTimeout)
+	}
+}
+
 func TestWatcher_InboxCoalescesBurst(t *testing.T) {
 	f := newFixture(t, withDebounce(100*time.Millisecond))
 	f.start(t)

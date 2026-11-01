@@ -1,9 +1,13 @@
 package auditlinks
 
-import "os"
+import (
+	"context"
 
-func realReadFile(name string) (string, error) {
-	b, err := os.ReadFile(name)
+	"sea-noise/internal/vault"
+)
+
+func realReadFile(ctx context.Context, name string) (string, error) {
+	b, err := vault.ReadFileRetryContext(ctx, name)
 	if err != nil {
 		return "", err
 	}

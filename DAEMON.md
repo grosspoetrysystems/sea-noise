@@ -84,8 +84,21 @@ The daemon watches the vault path via `fsnotify` for new inbox files.
 - **Modified or removed notes** — no per-note retrieval update is currently
   wired; run `sea-noise index` to rebuild the full index.
 
-Events debounce at the configured interval (default 200ms). The watcher scans
+Events debounce at the configured interval (default 200ms), then the watcher
+waits for the inbox's markdown snapshot to remain unchanged for 500ms before
+starting the pipeline. This extra settle window handles cloud-synced captures
+whose file or contents materialize in multiple steps. The watcher scans
 existing `inbox/*.md` files when it starts.
+
+Vault reads in the Go runtime use the shared retry policy for transient
+cloud-backed filesystem errors such as `resource deadlock avoided`. Inbox
+hydration does not impose a shorter child timeout, so delayed iCloud
+materialization remains protected by the caller's bounded pipeline context.
+If the inbox keeps changing, the watcher caps settling at 30 seconds and then
+fires the pipeline so the read-retry policy can handle individual files.
+If the bounded hydrate step deadline expires, the remaining notes are reported
+as unreadable and inbox processing continues for the rest; daemon cancellation
+still aborts the step.
 
 ## Configuration
 
