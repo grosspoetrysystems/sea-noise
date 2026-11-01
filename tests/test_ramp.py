@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import io
 import sys
 import unittest
 import urllib.error
@@ -10,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from configure_repository import QUEUE_LABELS as PROVISIONED
-from pr_queue import GitHub, LABELS as QUEUE_LABELS, SUPERSEDED, check_superseded, linked_issues, merged_rival, notice, plan, queued, turn, update_notice
+from pr_queue import GitHub, LABELS as QUEUE_LABELS, SUPERSEDED, check_superseded, is_issue, linked_issues, merged_rival, notice, plan, queued, turn, update_notice
 
 NOW = datetime(2026, 10, 30, tzinfo=timezone.utc)
 
@@ -127,7 +128,7 @@ class MaintainerLookupTests(unittest.TestCase):
 
     def test_lookup_failure_falls_back_to_outsider(self):
         failures = (
-            urllib.error.HTTPError("url", 404, "Not Found", {}, None),
+            urllib.error.HTTPError("url", 404, "Not Found", {}, io.BytesIO(b"missing")),
             SystemExit("workflow permission denied"),
             RuntimeError("network down"),
         )
@@ -140,6 +141,16 @@ class MaintainerLookupTests(unittest.TestCase):
 
                 github.request = request
                 self.assertFalse(github.is_maintainer("someone"))
+
+    def test_lookup_failure_closes_http_error(self):
+        github = GitHub("o/r", "token")
+        with urllib.error.HTTPError("url", 404, "Not Found", {}, io.BytesIO(b"missing")) as error:
+            def request(method, path):
+                raise error
+
+            github.request = request
+            self.assertFalse(github.is_maintainer("someone"))
+            self.assertTrue(error.closed)
 
 
 class QueueScopeTests(unittest.TestCase):
@@ -188,6 +199,30 @@ class SupersededTests(unittest.TestCase):
         known, mentioned = linked_issues(self.pr, [cross_reference(12, is_pr=False), cross_reference(60)])
         self.assertEqual(known, {12})
         self.assertEqual(mentioned, {7})  # #12 already known; bare #1 and #3 are prose
+
+    def test_missing_issue_closes_http_error(self):
+        for status in (404, 410):
+            with self.subTest(status=status):
+                github = GitHub("o/r", "token")
+                with urllib.error.HTTPError("url", status, "Missing", {}, io.BytesIO(b"missing")) as error:
+                    def request(method, path):
+                        raise error
+
+                    github.request = request
+                    self.assertFalse(is_issue(github, 7))
+                    self.assertTrue(error.closed)
+
+    def test_unexpected_issue_error_is_propagated(self):
+        github = GitHub("o/r", "token")
+        with urllib.error.HTTPError("url", 503, "Unavailable", {}, io.BytesIO(b"retry")) as error:
+            def request(method, path):
+                raise error
+
+            github.request = request
+            with self.assertRaises(urllib.error.HTTPError) as raised:
+                is_issue(github, 7)
+            self.assertIs(raised.exception, error)
+            self.assertFalse(error.closed)
 
     def test_rival_merged_while_this_pr_waited(self):
         found = merged_rival(self.pr, {12: [cross_reference(61, merged_day=3), cross_reference(62, merged_day=1)]})

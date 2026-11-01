@@ -32,19 +32,16 @@ from validate_pr import _section
 # Path-to-label rules. Adopters edit this table in their copy. A pattern with a
 # slash matches the full path; a bare pattern matches the basename at any depth.
 # fnmatch's `*` crosses `/`, so `.github/workflows/*` also matches nested files.
+# Lockfiles by name, not "*lock*": that would also catch clock.ts or deadlock_test.go.
+LOCKFILES = ("*.lock", "*.lockb", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "go.sum")
+
 RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "risk:dependencies",
         (
             "package.json",
-            # Lockfiles by name, not "*lock*": that would also catch clock.ts or deadlock_test.go.
-            "*.lock",
-            "*.lockb",
-            "package-lock.json",
-            "npm-shrinkwrap.json",
-            "pnpm-lock.yaml",
+            *LOCKFILES,
             "go.mod",
-            "go.sum",
             "requirements*.txt",
             "pyproject.toml",
             "Cargo.*",
@@ -86,6 +83,11 @@ RISK_BOXES = {
 }
 
 GENERATED = "risk:generated"
+# "Split this": more changed lines or files than one review holds, with lockfiles
+# and generated or vendored files excluded. Adopters edit these in their copy.
+LARGE = "risk:large"
+SPLIT_LINES = 1000
+SPLIT_FILES = 50
 RISK_PREFIX = "risk:"
 # GitHub caps the changed-file list at 3000; at or above it, treat the rest as unknown.
 FILE_CAP = 3000
@@ -136,6 +138,19 @@ def derive(paths: list[str], generated: list[str]) -> dict[str, list[str]]:
     return {label: sorted(paths) for label, paths in sorted(hits.items())}
 
 
+def large(files: dict[str, int], generated: list[str]) -> str | None:
+    """Describe the change when it is too large to review as one, else None."""
+    counted = {
+        path: changes
+        for path, changes in files.items()
+        if not any(_match(path, pattern) for pattern in (*LOCKFILES, *generated))
+    }
+    lines = sum(counted.values())
+    if lines > SPLIT_LINES or len(counted) > SPLIT_FILES:
+        return f"{lines} changed lines in {len(counted)} files, lockfiles and generated files excluded"
+    return None
+
+
 def ticked_boxes(body: str) -> list[str]:
     """Return Risk checkbox labels ticked by the author.
 
@@ -155,6 +170,7 @@ def ticked_boxes(body: str) -> list[str]:
 def comparison(derived: set[str], ticked: list[str], unknown: bool = False) -> str:
     """Describe agreement or differences between paths and the author's boxes."""
     boxed = {RISK_BOXES[text] for text in ticked if text in RISK_BOXES}
+    derived = derived - {LARGE}  # no Risk box asks about size
     if derived == boxed:
         result = "Paths and the author's Risk boxes agree."
     else:
@@ -181,7 +197,7 @@ def summary(derived: dict[str, list[str]], body: str, unknown: bool) -> str:
     if derived:
         lines += ["| Label | Paths |", "| --- | --- |"]
         lines += [
-            f"| `{label}` | {', '.join(_markdown_path(path) for path in paths)} |"
+            f"| `{label}` | {', '.join(paths if label == LARGE else (_markdown_path(path) for path in paths))} |"
             for label, paths in derived.items()
         ]
     else:
@@ -198,8 +214,8 @@ def summary(derived: dict[str, list[str]], body: str, unknown: bool) -> str:
     return "\n".join(lines) + "\n"
 
 
-def changed_paths(github: GitHub, number: int, pull: dict[str, Any] | None = None) -> tuple[list[str], bool]:
-    """Return known changed paths and whether any file data is unknown.
+def changed_paths(github: GitHub, number: int, pull: dict[str, Any] | None = None) -> tuple[dict[str, int], bool]:
+    """Return known changed paths with their changed-line counts, and whether any file data is unknown.
 
     GitHub exposes at most 3,000 files for a pull request. Missing filenames,
     missing counts, and a shorter-than-advertised response are all unknown rather
@@ -209,14 +225,18 @@ def changed_paths(github: GitHub, number: int, pull: dict[str, Any] | None = Non
     if pull is None:
         pull = github.request("GET", f"pulls/{number}")
     unknown = False
-    paths: list[str] = []
+    paths: dict[str, int] = {}
     if not isinstance(files, list):
         return paths, True
     for item in files:
         if not isinstance(item, dict) or not isinstance(item.get("filename"), str):
             unknown = True
             continue
-        paths.append(item["filename"])
+        changes = item.get("changes")
+        if type(changes) is not int:
+            unknown = True
+            changes = 0
+        paths[item["filename"]] = changes
     expected = pull.get("changed_files") if isinstance(pull, dict) else None
     if type(expected) is not int:
         unknown = True
@@ -292,7 +312,11 @@ def reconcile(github: GitHub, number: int) -> dict[str, list[str]]:
         raise SystemExit(f"GitHub returned no pull request data for #{number}")
     paths, files_unknown = changed_paths(github, number, pull)
     gitattributes, attributes_unknown = read_gitattributes(github, pull)
-    derived = derive(paths, generated_patterns(gitattributes))
+    patterns = generated_patterns(gitattributes)
+    derived = derive(list(paths), patterns)
+    split = large(paths, patterns)
+    if split:
+        derived[LARGE] = [split]
     complete = not files_unknown and not attributes_unknown
     set_labels(github, number, set(derived), pull.get("labels") or [], complete)
     report = summary(derived, pull.get("body") or "", not complete)
