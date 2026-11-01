@@ -1,6 +1,7 @@
 package signal_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -235,6 +236,22 @@ func TestBuildAndWrite_Roundtrip(t *testing.T) {
 	}
 	if !strings.Contains(string(got), "[[x|X]]") {
 		t.Errorf("expected x.md item in output:\n%s", string(got))
+	}
+}
+
+func TestBuildAndWriteContext_RespectsCancellation(t *testing.T) {
+	root := writeVault(t, map[string]string{
+		"notes/references/cancelled.md": "---\ntitle: Cancelled\nconsumed: false\n---\nbody\n",
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, _, err := signal.BuildAndWriteContext(ctx, root, time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("BuildAndWriteContext error = %v, want context canceled", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "signal", "queue.md")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("queue.md exists after cancellation, stat error = %v", err)
 	}
 }
 

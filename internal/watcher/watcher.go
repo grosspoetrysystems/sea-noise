@@ -48,8 +48,76 @@ import (
 // DefaultDebounce is the per-path debounce window. Picked to be long
 // enough to collapse a typical editor's save burst (vim writes a
 // .swp, then the file, then chmods) but short enough that "drop in
-// inbox/, see processing start" still feels live.
+// inbox, see processing start" still feels live.
 const DefaultDebounce = 200 * time.Millisecond
+
+// DefaultInboxSettle is the quiet period used to ensure a synced inbox
+// file has stopped changing before the pipeline reads it.
+const DefaultInboxSettle = 500 * time.Millisecond
+
+// DefaultInboxMaxWait bounds how long a continuously syncing inbox can
+// defer the pipeline. The pipeline's own vault reads still apply their
+// materialization retry policy after this deadline.
+const DefaultInboxMaxWait = 30 * time.Second
+
+type inboxStamp struct {
+	size    int64
+	modTime time.Time
+}
+
+func (w *Watcher) inboxStable(ctx context.Context) bool {
+	before, ok := inboxSnapshot(w)
+	if !ok {
+		return false
+	}
+	timer := time.NewTimer(w.cfg.InboxSettle)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+	}
+	after, ok := inboxSnapshot(w)
+	return ok && inboxSnapshotsEqual(before, after)
+}
+
+var inboxSnapshot = func(w *Watcher) (map[string]inboxStamp, bool) {
+	inbox := filepath.Join(w.cfg.VaultRoot, w.cfg.InboxSubdir)
+	entries, err := os.ReadDir(inbox)
+	if errors.Is(err, fs.ErrNotExist) {
+		return map[string]inboxStamp{}, true
+	}
+	if err != nil {
+		return nil, false
+	}
+	stamps := make(map[string]inboxStamp)
+	for _, entry := range entries {
+		if entry.IsDir() || !isMarkdown(entry.Name()) {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return nil, false
+		}
+		stamps[entry.Name()] = inboxStamp{
+			size:    info.Size(),
+			modTime: info.ModTime(),
+		}
+	}
+	return stamps, true
+}
+
+func inboxSnapshotsEqual(a, b map[string]inboxStamp) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for name, before := range a {
+		if after, ok := b[name]; !ok || after != before {
+			return false
+		}
+	}
+	return true
+}
 
 // ExcludeDirs are directory names skipped during the initial walk
 // and never registered with fsnotify. _meta is the daemon's own
@@ -82,6 +150,9 @@ type Config struct {
 	// Debounce is the per-path event coalescing window. Zero falls
 	// back to DefaultDebounce.
 	Debounce time.Duration
+	// InboxSettle is the quiet period used to confirm synced inbox
+	// files stopped changing. Zero falls back to DefaultInboxSettle.
+	InboxSettle time.Duration
 	// Actions are the user-supplied callbacks. Both optional.
 	Actions Actions
 }
@@ -106,7 +177,9 @@ type Watcher struct {
 	// concurrent pipeline run — wasteful and racy on shared vault
 	// state like _meta/topic-frequencies.md.
 	inboxTimer *time.Timer
-
+	// inboxSince bounds repeated settle retries caused by a continuously
+	// syncing file or a steady stream of cloud events.
+	inboxSince time.Time
 	// inboxMu serialises actual pipeline execution. Even when the
 	// coalescing timer collapses correctly, a slow pipeline + a
 	// timer firing during that pipeline could still overlap. The
@@ -129,6 +202,9 @@ func New(cfg Config) (*Watcher, error) {
 	}
 	if cfg.Debounce <= 0 {
 		cfg.Debounce = DefaultDebounce
+	}
+	if cfg.InboxSettle <= 0 {
+		cfg.InboxSettle = DefaultInboxSettle
 	}
 	return &Watcher{cfg: cfg, timers: map[string]*time.Timer{}}, nil
 }
@@ -193,6 +269,11 @@ func (w *Watcher) Stop() error {
 		t.Stop()
 		delete(w.timers, k)
 	}
+	if w.inboxTimer != nil {
+		w.inboxTimer.Stop()
+		w.inboxTimer = nil
+	}
+	w.inboxSince = time.Time{}
 	w.timerMu.Unlock()
 	return nil
 }
@@ -315,17 +396,50 @@ func (w *Watcher) handle(ctx context.Context, ev fsnotify.Event) {
 // pipeline walks the full inbox dir.
 func (w *Watcher) scheduleInbox(ctx context.Context) {
 	cb := w.cfg.Actions.OnInboxCreate
-	if cb == nil {
+	if cb == nil || ctx.Err() != nil || w.isStopped() {
 		return
 	}
 	w.timerMu.Lock()
 	if w.inboxTimer != nil {
 		w.inboxTimer.Stop()
 	}
-	w.inboxTimer = time.AfterFunc(w.cfg.Debounce, func() {
+	if w.inboxSince.IsZero() {
+		w.inboxSince = time.Now()
+	}
+	delay := w.cfg.Debounce
+	if remaining := DefaultInboxMaxWait - time.Since(w.inboxSince); remaining < delay {
+		if remaining > 0 {
+			delay = remaining
+		} else {
+			delay = 0
+		}
+	}
+	w.inboxTimer = time.AfterFunc(delay, func() {
 		w.timerMu.Lock()
 		w.inboxTimer = nil
+		since := w.inboxSince
 		w.timerMu.Unlock()
+		if ctx.Err() != nil || w.isStopped() {
+			return
+		}
+		// Wait for the complete inbox snapshot to remain unchanged
+		// across a settle window. A synced file can appear before its
+		// contents finish materializing.
+		if !w.inboxStable(ctx) {
+			if ctx.Err() == nil && !w.isStopped() &&
+				time.Since(since) < DefaultInboxMaxWait {
+				w.scheduleInbox(ctx)
+				return
+			}
+			// At the deadline, let the pipeline's vault reads apply
+			// their own materialization retry policy.
+		}
+		w.timerMu.Lock()
+		w.inboxSince = time.Time{}
+		w.timerMu.Unlock()
+		if ctx.Err() != nil || w.isStopped() {
+			return
+		}
 		// Serialise: another scheduled fire that races past the
 		// debounce window still waits for this one to finish.
 		w.inboxMu.Lock()
@@ -333,6 +447,12 @@ func (w *Watcher) scheduleInbox(ctx context.Context) {
 		cb(ctx, "") // path is meaningless at coalesce time; pipeline walks the dir
 	})
 	w.timerMu.Unlock()
+}
+
+func (w *Watcher) isStopped() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.stopped
 }
 
 // schedule fires cb(ctx, path) after the debounce window, collapsing

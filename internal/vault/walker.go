@@ -137,8 +137,14 @@ func WalkContext(ctx context.Context, root string, excludeDirs []string) ([]Note
 		}
 		content, err := ReadFileRetryContext(ctx, p)
 		if err != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, ctxErr
+			}
 			// Preserve prototype parity: unreadable notes are skipped.
 			continue
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
 		if strings.TrimSpace(string(content)) == "" {
 			continue

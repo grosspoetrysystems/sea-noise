@@ -56,14 +56,20 @@ configuration surface, so these are not user-configurable through the CLI.
 The registered step order is:
 
 - **Inbox**: every 30 minutes when the scheduler clock is at minute `00` or
-  `30`, and when the watcher reports a new `inbox/` file:
-  `hydrate-stubs → process-inbox → youtube-transcript`. There is no explicit
-  startup inbox run.
+  `30`, when the watcher reports a new `inbox/` file, and on watcher startup
+  when existing inbox notes are present:
+  `hydrate-stubs → process-inbox → youtube-transcript`. Watcher events
+  coalesce for the configured debounce (default 200ms), then wait for a
+  500ms stable markdown snapshot before starting the pipeline.
 - **Daily**: `rotate-logs → retry-crawls → summarize → index →
   daily-synthesis` (deferred) `→ sync-consumed` (deferred) `→ signal →
   plunge` (deferred) `→ home` (deferred) `→ todoist-push → todoist-pull`.
 - **Weekly**: `retry-crawls → weekly-synthesis` (deferred) `→ index → signal →
   audit-links → enrich-topics → profile-entities`.
+
+Vault reads use the shared bounded retry policy for transient cloud-backed
+filesystem errors such as `resource deadlock avoided`. Inbox hydration does not
+override that policy with a shorter child timeout.
 
 `_meta/.daily-last-run` and `_meta/.weekly-last-run` gate only successful
 non-dry-run `daily` and `weekly` runs; `inbox` has no marker. Executed

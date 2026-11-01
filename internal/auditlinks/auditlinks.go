@@ -10,6 +10,7 @@
 package auditlinks
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -24,9 +25,14 @@ import (
 // using today as the report's date. Output matches references/scripts/
 // audit-links.py:main() byte-for-byte.
 func BuildReport(root string, today time.Time) (string, error) {
+	return BuildReportContext(context.Background(), root, today)
+}
+
+// BuildReportContext is BuildReport with cancellation during vault reads.
+func BuildReportContext(ctx context.Context, root string, today time.Time) (string, error) {
 	// Collect all stems (lowercased) per the prototype's
 	// collect_note_stems. Uses the same exclude set as scan_links.
-	notes, err := vault.Walk(root, vault.LinksExcludeDirs)
+	notes, err := vault.WalkContext(ctx, root, vault.LinksExcludeDirs)
 	if err != nil {
 		return "", fmt.Errorf("walk vault: %w", err)
 	}
@@ -46,8 +52,11 @@ func BuildReport(root string, today time.Time) (string, error) {
 		// but for link extraction we want the full file content
 		// (frontmatter could contain wikilinks too, matching the
 		// prototype which reads the whole text). Re-read.
-		text, err := readFile(filepath.Join(root, n.Path))
+		text, err := readFile(ctx, filepath.Join(root, n.Path))
 		if err != nil {
+			if ctx.Err() != nil {
+				return "", ctx.Err()
+			}
 			// Match prototype: read_text(errors="replace") tolerates,
 			// but a totally unreadable file is skipped silently.
 			continue

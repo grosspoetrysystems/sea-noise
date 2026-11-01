@@ -29,6 +29,7 @@ import (
 
 	"sea-noise/internal/markdown"
 	"sea-noise/internal/todoist"
+	"sea-noise/internal/vault"
 )
 
 // TodosDir is the vault-relative directory the prototype scripts read.
@@ -154,7 +155,7 @@ func PullCompletions(ctx context.Context, client *todoist.Client, in PullComplet
 	paths := mdPaths(entries, dir)
 	for _, p := range paths {
 		rel, _ := filepath.Rel(in.VaultRoot, p)
-		outcome, err := completeOne(p, idToTask)
+		outcome, err := completeOne(ctx, p, idToTask)
 		if err != nil {
 			return result, err
 		}
@@ -177,7 +178,7 @@ const (
 )
 
 func pushOne(ctx context.Context, client *todoist.Client, in PushTasksInput, path string) (outcomeKind, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := vault.ReadFileRetryContext(ctx, path)
 	if err != nil {
 		return 0, fmt.Errorf("todoistsync: read %s: %w", path, err)
 	}
@@ -233,8 +234,8 @@ func pushOne(ctx context.Context, client *todoist.Client, in PushTasksInput, pat
 	return outcomeSynced, nil
 }
 
-func completeOne(path string, idToTask map[string]todoist.CompletedTask) (outcomeKind, error) {
-	raw, err := os.ReadFile(path)
+func completeOne(ctx context.Context, path string, idToTask map[string]todoist.CompletedTask) (outcomeKind, error) {
+	raw, err := vault.ReadFileRetryContext(ctx, path)
 	if err != nil {
 		return 0, fmt.Errorf("todoistsync: read %s: %w", path, err)
 	}

@@ -99,11 +99,11 @@ func buildRegistry(deps daemonStepDeps) daemon.Registry {
 		return err
 	}
 	signalStep := func(ctx context.Context) error {
-		_, _, err := signal.BuildAndWrite(v, time.Now())
+		_, _, err := signal.BuildAndWriteContext(ctx, v, time.Now())
 		return err
 	}
 	auditStep := func(ctx context.Context) error {
-		report, err := auditlinks.BuildReport(v, time.Now())
+		report, err := auditlinks.BuildReportContext(ctx, v, time.Now())
 		if err != nil {
 			return err
 		}

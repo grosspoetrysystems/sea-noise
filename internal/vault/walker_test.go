@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"reflect"
 	"runtime"
 	"sort"
+	"syscall"
 	"testing"
 )
 
@@ -31,6 +33,28 @@ func TestWalk_PathIsFile(t *testing.T) {
 	_, err := Walk(notADir, nil)
 	if !errors.Is(err, ErrVaultNotFound) {
 		t.Fatalf("Walk(%q) = %v, want errors.Is(err, ErrVaultNotFound)", notADir, err)
+	}
+}
+
+func TestWalkContext_ReturnsCancellationDuringRead(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "note.md")
+	if err := os.WriteFile(path, []byte("# Note\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	previous := osReadFile
+	osReadFile = func(string) ([]byte, error) {
+		cancel()
+		return nil, syscall.EDEADLK
+	}
+	t.Cleanup(func() { osReadFile = previous })
+
+	_, err := WalkContext(ctx, root, nil)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("WalkContext error = %v, want context canceled", err)
 	}
 }
 

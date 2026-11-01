@@ -6,6 +6,7 @@
 package signal
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"sea-noise/internal/markdown"
+	"sea-noise/internal/vault"
 )
 
 // Tunables — mirror references/scripts/generate-signal.py module constants.
@@ -45,8 +47,16 @@ var ErrSignal = errors.New("signal: build failed")
 // write it to <vaultRoot>/signal/queue.md. Returns the count of items
 // in the queue and the relative output path on success.
 func BuildAndWrite(vaultRoot string, now time.Time) (count int, outRel string, err error) {
-	body, n, err := Build(vaultRoot, now)
+	return BuildAndWriteContext(context.Background(), vaultRoot, now)
+}
+
+// BuildAndWriteContext is BuildAndWrite with cancellation during vault reads.
+func BuildAndWriteContext(ctx context.Context, vaultRoot string, now time.Time) (count int, outRel string, err error) {
+	body, n, err := BuildContext(ctx, vaultRoot, now)
 	if err != nil {
+		return 0, "", err
+	}
+	if err := ctx.Err(); err != nil {
 		return 0, "", err
 	}
 	outDir := filepath.Join(vaultRoot, signalDir)
@@ -64,16 +74,24 @@ func BuildAndWrite(vaultRoot string, now time.Time) (count int, outRel string, e
 // without writing to disk. Useful for tests and callers that want to
 // emit the queue somewhere other than the default location.
 func Build(vaultRoot string, now time.Time) (string, int, error) {
-	assertionTags, err := loadAssertionTags(vaultRoot)
+	return BuildContext(context.Background(), vaultRoot, now)
+}
+
+// BuildContext is Build with cancellation during vault reads.
+func BuildContext(ctx context.Context, vaultRoot string, now time.Time) (string, int, error) {
+	if err := ctx.Err(); err != nil {
+		return "", 0, err
+	}
+	assertionTags, err := loadAssertionTags(ctx, vaultRoot)
 	if err != nil {
 		return "", 0, err
 	}
-	risingTopics, err := loadRisingTopics(vaultRoot)
+	risingTopics, err := loadRisingTopics(ctx, vaultRoot)
 	if err != nil {
 		return "", 0, err
 	}
 
-	items, err := collectItems(vaultRoot, assertionTags, risingTopics, now)
+	items, err := collectItems(ctx, vaultRoot, assertionTags, risingTopics, now)
 	if err != nil {
 		return "", 0, err
 	}
@@ -106,7 +124,7 @@ type item struct {
 // loadAssertionTags scans notes/assertions/*.md for active assertions
 // and returns the union of tier-2 domain tags (tags containing "/").
 // Missing directory is not an error (matches Python).
-func loadAssertionTags(vaultRoot string) (map[string]struct{}, error) {
+func loadAssertionTags(ctx context.Context, vaultRoot string) (map[string]struct{}, error) {
 	out := map[string]struct{}{}
 	dir := filepath.Join(vaultRoot, assertionsDir)
 	entries, err := os.ReadDir(dir)
@@ -120,8 +138,11 @@ func loadAssertionTags(vaultRoot string) (map[string]struct{}, error) {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		raw, err := vault.ReadFileRetryContext(ctx, filepath.Join(dir, e.Name()))
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			continue
 		}
 		fm, ferr := markdown.ParseFrontmatterYAML(string(raw))
@@ -149,11 +170,14 @@ func loadAssertionTags(vaultRoot string) (map[string]struct{}, error) {
 // fourth column contains the word "rising" (case-insensitive). The first
 // column of each such row, stripped of leading "#", is the rising tag.
 // Missing file is not an error (matches Python).
-func loadRisingTopics(vaultRoot string) (map[string]struct{}, error) {
+func loadRisingTopics(ctx context.Context, vaultRoot string) (map[string]struct{}, error) {
 	out := map[string]struct{}{}
 	path := filepath.Join(vaultRoot, topicFreqPath)
-	raw, err := os.ReadFile(path)
+	raw, err := vault.ReadFileRetryContext(ctx, path)
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		if errors.Is(err, fs.ErrNotExist) {
 			return out, nil
 		}
@@ -192,7 +216,7 @@ func splitTableRow(line string) []string {
 
 // collectItems walks the scan directories and returns one scored item
 // per unconsumed eligible note.
-func collectItems(vaultRoot string, assertionTags, risingTopics map[string]struct{}, now time.Time) ([]item, error) {
+func collectItems(ctx context.Context, vaultRoot string, assertionTags, risingTopics map[string]struct{}, now time.Time) ([]item, error) {
 	var items []item
 	for _, rel := range scanDirs {
 		dir := filepath.Join(vaultRoot, rel)
@@ -206,8 +230,11 @@ func collectItems(vaultRoot string, assertionTags, risingTopics map[string]struc
 			if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
 				return nil
 			}
-			it, ok, err := scoreFile(vaultRoot, path, assertionTags, risingTopics, now)
+			it, ok, err := scoreFile(ctx, vaultRoot, path, assertionTags, risingTopics, now)
 			if err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
 				return nil // skip unreadable files, match Python's try/except
 			}
 			if !ok {
@@ -216,7 +243,13 @@ func collectItems(vaultRoot string, assertionTags, risingTopics map[string]struc
 			items = append(items, it)
 			return nil
 		})
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		if err != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, ctxErr
+			}
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
 			return nil, fmt.Errorf("%w: walk %s: %v", ErrSignal, dir, err)
 		}
 	}
@@ -225,8 +258,8 @@ func collectItems(vaultRoot string, assertionTags, risingTopics map[string]struc
 
 // scoreFile reads one note, applies eligibility filters, and produces
 // an item. The second return is false when the note is filtered out.
-func scoreFile(vaultRoot, abs string, assertionTags, risingTopics map[string]struct{}, now time.Time) (item, bool, error) {
-	raw, err := os.ReadFile(abs)
+func scoreFile(ctx context.Context, vaultRoot, abs string, assertionTags, risingTopics map[string]struct{}, now time.Time) (item, bool, error) {
+	raw, err := vault.ReadFileRetryContext(ctx, abs)
 	if err != nil {
 		return item{}, false, err
 	}

@@ -1,6 +1,8 @@
 package auditlinks
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,6 +19,16 @@ func TestBuildReport_EmptyVault(t *testing.T) {
 	want := "# Broken Links Audit — 2026-05-21\n\nNo broken links found.\n"
 	if report != want {
 		t.Errorf("report =\n%q\nwant\n%q", report, want)
+	}
+}
+
+func TestBuildReportContext_RespectsCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := BuildReportContext(ctx, t.TempDir(), mustParseDate(t, "2026-05-21"))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("BuildReportContext error = %v, want context canceled", err)
 	}
 }
 
