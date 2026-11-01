@@ -229,7 +229,9 @@ class GitHub:
                 )
                 role = (permission or {}).get("permission") or (permission or {}).get("role_name")
                 self._maintainer_cache[login] = role in {"admin", "maintain", "write"}
-            except (Exception, SystemExit):
+            except (Exception, SystemExit) as error:
+                if isinstance(error, urllib.error.HTTPError):
+                    error.close()
                 self._maintainer_cache[login] = False
         return self._maintainer_cache[login]
 
@@ -284,6 +286,7 @@ def is_issue(github: GitHub, number: int) -> bool:
         return "pull_request" not in (github.request("GET", f"issues/{number}") or {"pull_request": None})
     except urllib.error.HTTPError as error:
         if error.code in (404, 410):  # no such issue, or deleted
+            error.close()
             return False
         raise
 
