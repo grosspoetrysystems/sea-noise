@@ -23,7 +23,7 @@ RISK_LABELS = {
     "risk:dependencies": ("b60205", "Advisory: changed dependency manifests or lockfiles."),
     "risk:automation": ("fbca04", "Advisory: changed automation, build, release, policy, or agent instructions."),
     "risk:generated": ("d4c5f9", "Advisory: changed generated or vendored content marked in .gitattributes."),
-    "risk:large": ("e99695", "Advisory: over 1,000 changed lines or 50 files, lockfiles and generated excluded; consider splitting."),
+    "risk:large": ("e99695", "Advisory: over 1,000 changed lines or 50 files, excluding lockfiles and generated files."),
 }
 
 def protection(mode: str, extra_checks: tuple[str, ...] = ()) -> dict[str, Any]:
