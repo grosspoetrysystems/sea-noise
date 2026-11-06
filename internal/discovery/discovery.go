@@ -390,7 +390,15 @@ func loadOverview(ctx context.Context, db retrieval.Queryer, noteID string) ([]S
 		return nil, err
 	}
 	if len(chunks) == 0 {
-		return nil, fmt.Errorf("%w: %s", ErrOverviewNotFound, noteID)
+		row := db.QueryRowContext(ctx, `SELECT id FROM notes WHERE id = ?`, noteID)
+		var indexedID string
+		if err := row.Scan(&indexedID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, fmt.Errorf("%w: %s", ErrOverviewNotFound, noteID)
+			}
+			return nil, fmt.Errorf("%w: load overview note: %v", ErrRetrieval, err)
+		}
+		return nil, nil
 	}
 	out := make([]Source, 0, len(chunks))
 	for _, chunk := range chunks {

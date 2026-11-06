@@ -80,6 +80,9 @@ retrieval. It is used for the grounded association explanation and, only when
 queries; the original query is always retained. A `--project` overview is
 supplied as context, but it does not filter personal sources out of retrieval.
 
+An indexed overview with no body is valid: it contributes no context passages
+and does not prevent discovery.
+
 ### Invocation and required attestation
 
 Flags must precede the query. The query is required; all remaining argv words

@@ -256,6 +256,108 @@ func TestDiscoverLimitOneRetainsGroundedCrossNoteEvidence(t *testing.T) {
 	}
 }
 
+func TestDiscoverIndexedFrontmatterOnlyOverview(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		expand bool
+	}{
+		{name: "without_expansion"},
+		{name: "with_expansion", expand: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newDiscoveryFixture(t, map[string]string{
+				"project-context/acme/overview.md": "---\ntitle: Acme\n---\n",
+			})
+			fieldID, fieldBody := chunkFor(t, f.db, f.field, "lantern")
+			readingID, readingBody := chunkFor(t, f.db, f.reading, "lantern")
+			fieldSource := discovery.SourceID(f.field, fieldID)
+			readingSource := discovery.SourceID(f.reading, readingID)
+			mock := &transport.MockTransport{}
+			if tc.expand {
+				mock.EnqueueResponses(`{"queries":["patient listening"]}`)
+			}
+			mock.EnqueueResponses(associationResponse(
+				t,
+				fieldSource, strings.TrimSpace(fieldBody),
+				readingSource, strings.TrimSpace(readingBody),
+			))
+
+			result, err := discovery.Discover(context.Background(), discovery.Config{
+				DB:          f.db,
+				Executor:    newExecutor(mock),
+				ReadOnlyCLI: true,
+			}, discovery.Request{
+				Query:             "lantern",
+				ProjectOverviewID: f.overview,
+				ExpandQueries:     tc.expand,
+				Limit:             1,
+			})
+			if err != nil {
+				t.Fatalf("Discover with indexed frontmatter-only overview: %v", err)
+			}
+			for _, source := range result.Sources {
+				if source.NoteID == f.overview || source.Context {
+					t.Fatalf("source = %+v, want no passages from empty overview", source)
+				}
+			}
+			if len(result.Candidates) != 1 {
+				t.Fatalf("candidates = %+v, want one grounded cross-note connection", result.Candidates)
+			}
+			candidate := result.Candidates[0]
+			if candidate.SourceID != fieldSource || candidate.NoteID != f.field || candidate.ChunkID != fieldID {
+				t.Fatalf("candidate = %+v, want field-note candidate %s", candidate, fieldSource)
+			}
+			want := map[string]discovery.Evidence{
+				fieldSource:   {SourceID: fieldSource, NoteID: f.field, ChunkID: fieldID, Passage: strings.TrimSpace(fieldBody)},
+				readingSource: {SourceID: readingSource, NoteID: f.reading, ChunkID: readingID, Passage: strings.TrimSpace(readingBody)},
+			}
+			if len(candidate.Evidence) != len(want) {
+				t.Fatalf("evidence = %+v, want two distinct grounded notes", candidate.Evidence)
+			}
+			for _, evidence := range candidate.Evidence {
+				expected, ok := want[evidence.SourceID]
+				if !ok || evidence != expected {
+					t.Fatalf("evidence = %+v, want exact indexed citation %+v", evidence, expected)
+				}
+				delete(want, evidence.SourceID)
+			}
+			if len(want) != 0 {
+				t.Fatalf("missing cross-note evidence: %+v", want)
+			}
+		})
+	}
+}
+
+func TestDiscoverRejectsMissingOverview(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		expand bool
+	}{
+		{name: "without_expansion"},
+		{name: "with_expansion", expand: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newDiscoveryFixture(t)
+			mock := &transport.MockTransport{}
+			_, err := discovery.Discover(context.Background(), discovery.Config{
+				DB:          f.db,
+				Executor:    newExecutor(mock),
+				ReadOnlyCLI: true,
+			}, discovery.Request{
+				Query:             "lantern",
+				ProjectOverviewID: "project-context/unknown/overview.md",
+				ExpandQueries:     tc.expand,
+			})
+			if !errors.Is(err, discovery.ErrOverviewNotFound) {
+				t.Fatalf("err = %v, want ErrOverviewNotFound", err)
+			}
+			if len(mock.Calls) != 0 {
+				t.Fatalf("transport calls = %d, want 0 for missing overview", len(mock.Calls))
+			}
+		})
+	}
+}
+
 func TestDiscoverRebuildDuringExpansionUsesFinalIndexSnapshot(t *testing.T) {
 	f := newDiscoveryFixture(t)
 	oldOverviewID, _ := chunkFor(t, f.db, f.overview, "lantern")
