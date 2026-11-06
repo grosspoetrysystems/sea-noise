@@ -52,7 +52,7 @@ func BuildReportContext(ctx context.Context, root string, today time.Time) (stri
 		// but for link extraction we want the full file content
 		// (frontmatter could contain wikilinks too, matching the
 		// prototype which reads the whole text). Re-read.
-		text, err := readFile(ctx, filepath.Join(root, n.Path))
+		text, err := readFile(ctx, n.PhysicalPath)
 		if err != nil {
 			if ctx.Err() != nil {
 				return "", ctx.Err()

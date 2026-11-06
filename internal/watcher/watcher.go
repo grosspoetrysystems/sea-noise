@@ -43,6 +43,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+
+	"sea-noise/internal/vault"
 )
 
 // DefaultDebounce is the per-path debounce window. Picked to be long
@@ -138,6 +140,11 @@ type Actions struct {
 	// written (or atomically replaced). The path argument is absolute.
 	// Implementations typically schedule a per-note re-index.
 	OnNoteModify func(ctx context.Context, path string)
+
+	// OnSourcesChange fires when bridge membership or an external source
+	// root is created, replaced, or removed. Callers should re-resolve
+	// vernacular.Sources, then call ReloadSources before rebuilding.
+	OnSourcesChange func(ctx context.Context)
 }
 
 // Config tunes watcher behavior.
@@ -153,8 +160,15 @@ type Config struct {
 	// InboxSettle is the quiet period used to confirm synced inbox
 	// files stopped changing. Zero falls back to DefaultInboxSettle.
 	InboxSettle time.Duration
-	// Actions are the user-supplied callbacks. Both optional.
+	// Sources are explicit external source mappings. They are watched in
+	// addition to VaultRoot and are never considered the vault inbox.
+	Sources []vault.Source
+	// Actions are the user-supplied callbacks. All optional.
 	Actions Actions
+}
+type sourceSentinel struct {
+	parent string
+	target string
 }
 
 // Watcher is the resident fsnotify-backed observer.
@@ -167,6 +181,12 @@ type Watcher struct {
 	stopped bool
 	wg      sync.WaitGroup
 
+	sourceMu        sync.RWMutex
+	sources         []vault.Source
+	sourceSentinels []sourceSentinel
+	watchMu         sync.Mutex
+	watched         map[string]struct{}
+
 	timerMu sync.Mutex
 	timers  map[string]*time.Timer // per-path debounce (OnNoteModify)
 	// inboxTimer coalesces all OnInboxCreate fires within the
@@ -177,6 +197,8 @@ type Watcher struct {
 	// concurrent pipeline run — wasteful and racy on shared vault
 	// state like _meta/topic-frequencies.md.
 	inboxTimer *time.Timer
+	// sourceTimer coalesces membership/target boundary changes.
+	sourceTimer *time.Timer
 	// inboxSince bounds repeated settle retries caused by a continuously
 	// syncing file or a steady stream of cloud events.
 	inboxSince time.Time
@@ -192,11 +214,16 @@ func New(cfg Config) (*Watcher, error) {
 	if cfg.VaultRoot == "" {
 		return nil, errors.New("watcher: VaultRoot required")
 	}
-	abs, err := filepath.Abs(cfg.VaultRoot)
+	abs, err := canonicalPath(cfg.VaultRoot)
 	if err != nil {
 		return nil, fmt.Errorf("watcher: resolve vault root: %w", err)
 	}
 	cfg.VaultRoot = abs
+	sources, err := normalizeSources(cfg.VaultRoot, cfg.Sources)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Sources = nil
 	if cfg.InboxSubdir == "" {
 		cfg.InboxSubdir = "inbox"
 	}
@@ -206,7 +233,12 @@ func New(cfg Config) (*Watcher, error) {
 	if cfg.InboxSettle <= 0 {
 		cfg.InboxSettle = DefaultInboxSettle
 	}
-	return &Watcher{cfg: cfg, timers: map[string]*time.Timer{}}, nil
+	return &Watcher{
+		cfg:     cfg,
+		sources: append([]vault.Source(nil), sources...),
+		timers:  map[string]*time.Timer{},
+		watched: map[string]struct{}{},
+	}, nil
 }
 
 // Start registers every directory under the vault, performs a
@@ -231,6 +263,10 @@ func (w *Watcher) Start(ctx context.Context) error {
 
 	if err := w.registerAll(); err != nil {
 		_ = fsw.Close()
+		w.mu.Lock()
+		w.started = false
+		w.fsw = nil
+		w.mu.Unlock()
 		return err
 	}
 
@@ -273,31 +309,392 @@ func (w *Watcher) Stop() error {
 		w.inboxTimer.Stop()
 		w.inboxTimer = nil
 	}
+	if w.sourceTimer != nil {
+		w.sourceTimer.Stop()
+		w.sourceTimer = nil
+	}
 	w.inboxSince = time.Time{}
 	w.timerMu.Unlock()
 	return nil
 }
 
-// registerAll walks the vault and adds every directory (minus
-// ExcludeDirs) to the fsnotify watcher. fsnotify does not recurse —
-// we must register every subdir explicitly and add new ones on
-// create.
+// registerAll walks the vault and each explicitly registered source, adding
+// every directory to fsnotify. fsnotify does not recurse, so new directories
+// are added by handle on create.
 func (w *Watcher) registerAll() error {
-	return filepath.WalkDir(w.cfg.VaultRoot, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
+	w.watchMu.Lock()
+	defer w.watchMu.Unlock()
+	w.watched = map[string]struct{}{}
+	return w.registerAllLocked()
+}
+
+func (w *Watcher) registerAllLocked() error {
+	if err := w.registerTreeLocked(w.cfg.VaultRoot); err != nil {
+		return err
+	}
+	for _, source := range w.sourceSnapshot() {
+		if err := w.registerTreeLocked(source.PhysicalRoot); err != nil {
 			return err
+		}
+	}
+	for _, sentinel := range w.sentinelSnapshot() {
+		if err := w.addWatchExactLocked(sentinel.parent); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *Watcher) registerTreeLocked(root string) error {
+	info, err := os.Lstat(root)
+	if err != nil {
+		return fmt.Errorf("watcher: inspect %s: %w", root, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("watcher: symlink watch root %s", root)
+	}
+	if !info.IsDir() {
+		if err := w.addWatchLocked(filepath.Dir(root)); err != nil {
+			return err
+		}
+		return w.addWatchLocked(root)
+	}
+	return filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.Type()&os.ModeSymlink != 0 {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		if !d.IsDir() {
 			return nil
 		}
-		if isExcluded(d.Name()) && path != w.cfg.VaultRoot {
+		if isExcluded(d.Name()) && path != root {
 			return filepath.SkipDir
 		}
-		if err := w.fsw.Add(path); err != nil {
-			return fmt.Errorf("watcher: add %s: %w", path, err)
-		}
-		return nil
+		return w.addWatchLocked(path)
 	})
+}
+
+func (w *Watcher) addWatchLocked(path string) error {
+	path, err := canonicalPath(path)
+	if err != nil {
+		return fmt.Errorf("watcher: resolve watch path: %w", err)
+	}
+	if _, ok := w.watched[path]; ok {
+		return nil
+	}
+	if err := w.fsw.Add(path); err != nil {
+		return fmt.Errorf("watcher: add %s: %w", path, err)
+	}
+	w.watched[path] = struct{}{}
+	return nil
+}
+
+func (w *Watcher) addWatchExactLocked(path string) error {
+	path = filepath.Clean(path)
+	info, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("watcher: inspect exact watch path %s: %w", path, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return fmt.Errorf("watcher: exact watch path %s is not a real directory", path)
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return fmt.Errorf("watcher: resolve exact watch path %s: %w", path, err)
+	}
+	if filepath.Clean(resolved) != path {
+		return fmt.Errorf("watcher: exact watch path %s resolves to %s", path, resolved)
+	}
+	if _, ok := w.watched[path]; ok {
+		return nil
+	}
+	if err := w.fsw.Add(path); err != nil {
+		return fmt.Errorf("watcher: add exact watch %s: %w", path, err)
+	}
+	w.watched[path] = struct{}{}
+	return nil
+}
+
+// ReloadSources atomically replaces external source mappings and their
+// watches. An empty source list removes every external watch and sentinel
+// while retaining the vault root.
+func (w *Watcher) ReloadSources(sources []vault.Source) error {
+	normalized, err := normalizeSources(w.cfg.VaultRoot, sources)
+	if err != nil {
+		return err
+	}
+	return w.replaceSourceState(normalized, nil)
+}
+
+// SuspendSources disables invalid external mappings while retaining parent
+// sentinels for the last validated targets. A later target restoration can
+// therefore trigger OnSourcesChange and re-resolution.
+func (w *Watcher) SuspendSources() error {
+	active := w.sourceSnapshot()
+	targets := make([]string, 0, len(active))
+	if len(active) > 0 {
+		for _, source := range active {
+			targets = append(targets, source.PhysicalRoot)
+		}
+	} else {
+		for _, sentinel := range w.sentinelSnapshot() {
+			targets = append(targets, sentinel.target)
+		}
+	}
+	return w.replaceSourceState(nil, sourceSentinels(targets))
+}
+
+func sourceSentinels(targets []string) []sourceSentinel {
+	sentinels := make([]sourceSentinel, 0, len(targets))
+	seen := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		if !filepath.IsAbs(target) || filepath.Clean(target) != target {
+			continue
+		}
+		parent, err := nearestExistingAncestor(filepath.Dir(target))
+		if err != nil {
+			continue
+		}
+		sentinel := sourceSentinel{parent: parent, target: target}
+		key := sentinel.parent + "\x00" + sentinel.target
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		sentinels = append(sentinels, sentinel)
+	}
+	return sentinels
+}
+
+func (w *Watcher) replaceSourceState(normalized []vault.Source, sentinels []sourceSentinel) error {
+	w.mu.Lock()
+	started, stopped, fsw := w.started, w.stopped, w.fsw
+	w.mu.Unlock()
+	if !started || stopped || fsw == nil {
+		w.sourceMu.Lock()
+		w.sources = append([]vault.Source(nil), normalized...)
+		w.sourceSentinels = append([]sourceSentinel(nil), sentinels...)
+		w.sourceMu.Unlock()
+		return nil
+	}
+
+	w.watchMu.Lock()
+	defer w.watchMu.Unlock()
+	old := w.sourceSnapshot()
+	oldSentinels := w.sentinelSnapshot()
+	for path := range w.watched {
+		_ = fsw.Remove(path)
+	}
+	w.watched = map[string]struct{}{}
+	w.sourceMu.Lock()
+	w.sources = append([]vault.Source(nil), normalized...)
+	w.sourceSentinels = append([]sourceSentinel(nil), sentinels...)
+	w.sourceMu.Unlock()
+	if err := w.registerAllLocked(); err != nil {
+		for path := range w.watched {
+			_ = fsw.Remove(path)
+		}
+		w.watched = map[string]struct{}{}
+		w.sourceMu.Lock()
+		w.sources = old
+		w.sourceSentinels = oldSentinels
+		w.sourceMu.Unlock()
+		_ = w.registerAllLocked()
+		return err
+	}
+	return nil
+}
+
+func (w *Watcher) sourceSnapshot() []vault.Source {
+	w.sourceMu.RLock()
+	defer w.sourceMu.RUnlock()
+	return append([]vault.Source(nil), w.sources...)
+}
+
+func (w *Watcher) sentinelSnapshot() []sourceSentinel {
+	w.sourceMu.RLock()
+	defer w.sourceMu.RUnlock()
+	return append([]sourceSentinel(nil), w.sourceSentinels...)
+}
+
+// LogicalPath maps an absolute watcher event path to its stable logical ID.
+// It returns false for paths outside the vault and registered external roots.
+func (w *Watcher) LogicalPath(abs string) (string, bool) {
+	logical, _, ok := w.mapPath(abs)
+	return logical, ok
+}
+
+func (w *Watcher) mapPath(abs string) (string, bool, bool) {
+	clean, err := canonicalEventPath(abs)
+	if err != nil {
+		return "", false, false
+	}
+	w.sourceMu.RLock()
+	defer w.sourceMu.RUnlock()
+	for _, source := range w.sources {
+		physical := source.PhysicalRoot
+		if clean == physical {
+			return filepath.ToSlash(source.LogicalRoot), true, true
+		}
+		if !pathWithin(physical, clean) {
+			continue
+		}
+		rel, err := filepath.Rel(physical, clean)
+		if err != nil {
+			continue
+		}
+		return filepath.ToSlash(filepath.Join(source.LogicalRoot, filepath.FromSlash(rel))), true, true
+	}
+	rel, err := filepath.Rel(w.cfg.VaultRoot, clean)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false, false
+	}
+	if rel == "." {
+		return "", false, true
+	}
+	return filepath.ToSlash(rel), false, true
+}
+
+func (w *Watcher) isExternalPath(path string) bool {
+	_, external, ok := w.mapPath(path)
+	return ok && external
+}
+func (w *Watcher) isSourceSentinelPath(path string) bool {
+	abs, err := canonicalEventPath(path)
+	if err != nil {
+		return false
+	}
+	w.sourceMu.RLock()
+	defer w.sourceMu.RUnlock()
+	for _, sentinel := range w.sourceSentinels {
+		if pathWithin(abs, sentinel.target) || pathWithin(sentinel.target, abs) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeSources(vaultRoot string, sources []vault.Source) ([]vault.Source, error) {
+	out := make([]vault.Source, 0, len(sources))
+	seenLogical := make(map[string]struct{}, len(sources))
+	for _, source := range sources {
+		rawLogical := filepath.FromSlash(source.LogicalRoot)
+		if filepath.IsAbs(rawLogical) || strings.HasPrefix(source.LogicalRoot, "/") {
+			return nil, fmt.Errorf("watcher: invalid source logical root %q", source.LogicalRoot)
+		}
+		logical := filepath.ToSlash(strings.Trim(source.LogicalRoot, "/"))
+		if logical == "" || logical == "." || strings.HasPrefix(logical, "../") || strings.Contains(logical, "/../") || strings.Contains(logical, "\\") {
+			return nil, fmt.Errorf("watcher: invalid source logical root %q", source.LogicalRoot)
+		}
+		if _, ok := seenLogical[logical]; ok {
+			return nil, fmt.Errorf("watcher: duplicate source logical root %q", logical)
+		}
+		seenLogical[logical] = struct{}{}
+		physical, err := canonicalPath(source.PhysicalRoot)
+		if err != nil {
+			return nil, fmt.Errorf("watcher: resolve source %s: %w", source.LogicalRoot, err)
+		}
+		info, err := os.Stat(physical)
+		if err != nil {
+			return nil, fmt.Errorf("watcher: source %s: %w", source.LogicalRoot, err)
+		}
+		if !info.IsDir() && !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("watcher: source %s is not a file or directory", source.LogicalRoot)
+		}
+		if pathWithin(vaultRoot, physical) || pathWithin(physical, vaultRoot) {
+			return nil, fmt.Errorf("watcher: source %s overlaps vault", source.LogicalRoot)
+		}
+		out = append(out, vault.Source{LogicalRoot: logical, PhysicalRoot: physical})
+	}
+	return out, nil
+}
+
+func canonicalPath(name string) (string, error) {
+	abs, err := filepath.Abs(name)
+	if err != nil {
+		return "", err
+	}
+	abs = filepath.Clean(abs)
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		return filepath.Clean(resolved), nil
+	} else {
+		lastErr := err
+		current := abs
+		missing := make([]string, 0, 2)
+		for {
+			if _, statErr := os.Lstat(current); statErr == nil {
+				resolved, resolveErr := filepath.EvalSymlinks(current)
+				if resolveErr != nil {
+					return "", resolveErr
+				}
+				for i := len(missing) - 1; i >= 0; i-- {
+					resolved = filepath.Join(resolved, missing[i])
+				}
+				return filepath.Clean(resolved), nil
+			} else if !errors.Is(statErr, fs.ErrNotExist) {
+				return "", statErr
+			}
+			parent := filepath.Dir(current)
+			if parent == current {
+				return "", lastErr
+			}
+			missing = append(missing, filepath.Base(current))
+			current = parent
+		}
+	}
+}
+
+func canonicalEventPath(name string) (string, error) {
+	abs, err := filepath.Abs(name)
+	if err != nil {
+		return "", err
+	}
+	if info, err := os.Lstat(abs); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		parent, err := canonicalPath(filepath.Dir(abs))
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(parent, filepath.Base(abs)), nil
+	}
+	return canonicalPath(abs)
+}
+
+func nearestExistingAncestor(name string) (string, error) {
+	current := filepath.Clean(name)
+	for {
+		info, err := os.Lstat(current)
+		if err == nil {
+			if info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
+				resolved, resolveErr := filepath.EvalSymlinks(current)
+				if resolveErr == nil && filepath.Clean(resolved) == current {
+					return current, nil
+				}
+			}
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return "", err
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", fmt.Errorf("watcher: no safe source sentinel ancestor for %s", name)
+		}
+		current = parent
+	}
+}
+
+func pathWithin(base, candidate string) bool {
+	rel, err := filepath.Rel(base, candidate)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
 // scanInbox fires OnInboxCreate ONCE if the inbox has any .md notes
@@ -356,34 +753,56 @@ func (w *Watcher) eventLoop(ctx context.Context) {
 // handle classifies one fsnotify event and either fires a callback
 // (after debouncing) or registers a new directory.
 func (w *Watcher) handle(ctx context.Context, ev fsnotify.Event) {
-	// Newly created directories must be added to the watcher so
-	// their children become observable. This is the recursive-watch
-	// substitute fsnotify expects callers to manage themselves.
+	if canonical, err := canonicalEventPath(ev.Name); err == nil {
+		ev.Name = canonical
+	}
+	sentinelPath := w.isSourceSentinelPath(ev.Name)
+	if w.isSourceControlPath(ev.Name) && (ev.Has(fsnotify.Create) || ev.Has(fsnotify.Write) || ev.Has(fsnotify.Remove) || ev.Has(fsnotify.Rename)) {
+		w.scheduleSources(ctx)
+	}
+	if w.isExternalPath(ev.Name) && (ev.Has(fsnotify.Remove) || ev.Has(fsnotify.Rename)) {
+		w.scheduleSources(ctx)
+	}
+	if sentinelPath && (ev.Has(fsnotify.Create) || ev.Has(fsnotify.Write) || ev.Has(fsnotify.Remove) || ev.Has(fsnotify.Rename)) {
+		w.scheduleSources(ctx)
+	}
+
+	// Newly created directories must be added to the watcher so their
+	// children become observable. This applies to vault and explicit
+	// external roots alike.
 	if ev.Has(fsnotify.Create) {
-		info, err := os.Stat(ev.Name)
+		info, err := os.Lstat(ev.Name)
 		if err == nil && info.IsDir() {
-			if !isExcluded(filepath.Base(ev.Name)) {
-				_ = w.fsw.Add(ev.Name)
+			if sentinelPath {
+				w.watchMu.Lock()
+				_ = w.addWatchExactLocked(ev.Name)
+				w.watchMu.Unlock()
+				return
+			}
+			if _, _, indexable := w.mapPath(ev.Name); indexable && !isExcluded(filepath.Base(ev.Name)) {
+				w.watchMu.Lock()
+				_ = w.registerTreeLocked(ev.Name)
+				w.watchMu.Unlock()
+				w.schedule(ctx, ev.Name, w.cfg.Actions.OnNoteModify)
 			}
 			return
 		}
+	}
+	if sentinelPath {
+		return
 	}
 
 	if !isMarkdown(ev.Name) {
 		return
 	}
 
-	// Inbox events: any Create or Write under inbox/ coalesces to a
-	// single pipeline fire. Multiple files in quick succession
-	// collapse to one run that picks up all of them via the
-	// pipeline's own inbox walk. inboxMu in scheduleInbox ensures
-	// no two pipeline runs overlap.
+	// Only the physical vault inbox can trigger inbox processing. An
+	// external project directory named "inbox" is always a note modify.
 	if w.isInbox(ev.Name) && (ev.Has(fsnotify.Create) || ev.Has(fsnotify.Write)) {
 		w.scheduleInbox(ctx)
 		return
 	}
 
-	// Non-inbox markdown writes: per-path modify debounce.
 	if ev.Has(fsnotify.Write) || ev.Has(fsnotify.Create) {
 		w.schedule(ctx, ev.Name, w.cfg.Actions.OnNoteModify)
 	}
@@ -449,6 +868,42 @@ func (w *Watcher) scheduleInbox(ctx context.Context) {
 	w.timerMu.Unlock()
 }
 
+// scheduleSources debounces bridge membership and target-boundary changes
+// into one callback so an atomic metadata replacement cannot race several
+// source reloads.
+func (w *Watcher) scheduleSources(ctx context.Context) {
+	cb := w.cfg.Actions.OnSourcesChange
+	if cb == nil || ctx.Err() != nil || w.isStopped() {
+		return
+	}
+	w.timerMu.Lock()
+	if w.sourceTimer != nil {
+		w.sourceTimer.Stop()
+	}
+	w.sourceTimer = time.AfterFunc(w.cfg.Debounce, func() {
+		w.timerMu.Lock()
+		w.sourceTimer = nil
+		w.timerMu.Unlock()
+		if ctx.Err() != nil || w.isStopped() {
+			return
+		}
+		cb(ctx)
+	})
+	w.timerMu.Unlock()
+}
+
+func (w *Watcher) isSourceControlPath(name string) bool {
+	abs, err := canonicalEventPath(name)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(w.cfg.VaultRoot, abs)
+	if err != nil {
+		return false
+	}
+	return rel == "vernacular" || strings.HasPrefix(rel, "vernacular"+string(filepath.Separator))
+}
+
 func (w *Watcher) isStopped() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -476,8 +931,12 @@ func (w *Watcher) schedule(ctx context.Context, path string, cb func(context.Con
 
 // isInbox reports whether path is a direct child of the inbox dir.
 func (w *Watcher) isInbox(path string) bool {
+	clean, err := canonicalEventPath(path)
+	if err != nil {
+		return false
+	}
 	inbox := filepath.Join(w.cfg.VaultRoot, w.cfg.InboxSubdir)
-	dir := filepath.Dir(path)
+	dir := filepath.Dir(clean)
 	return dir == inbox
 }
 

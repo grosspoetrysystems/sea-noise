@@ -130,7 +130,7 @@ func findMentions(vaultRoot, entity string) ([]Mention, error) {
 
 	out := make([]Mention, 0, len(notes))
 	for _, n := range notes {
-		full, err := vault.ReadFileRetry(filepath.Join(vaultRoot, n.Path))
+		full, err := vault.ReadFileRetry(n.PhysicalPath)
 		if err != nil {
 			continue
 		}

@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"sea-noise/internal/markdown"
 	"sea-noise/internal/vault"
+	"sea-noise/internal/vernacular"
 )
 
 // ErrIndex is returned when indexing fails after migration has succeeded.
@@ -40,7 +42,11 @@ func IndexVault(ctx context.Context, db *sql.DB, root string, excludeDirs []stri
 	if excludeDirs == nil {
 		excludeDirs = vault.IndexerExcludeDirs
 	}
-	notes, err := vault.WalkContext(ctx, root, excludeDirs)
+	sources, err := vernacular.Sources(ctx, root)
+	if err != nil {
+		return IndexStats{}, fmt.Errorf("%w: sources: %v", ErrIndex, err)
+	}
+	notes, err := vault.WalkSourcesContext(ctx, root, excludeDirs, sources)
 	if err != nil {
 		return IndexStats{}, fmt.Errorf("%w: walk: %v", ErrIndex, err)
 	}
@@ -55,12 +61,12 @@ func IndexVault(ctx context.Context, db *sql.DB, root string, excludeDirs []stri
 		return IndexStats{}, err
 	}
 
-	stats, err := insertAll(ctx, tx, root, notes)
+	stats, err := insertAll(ctx, tx, notes)
 	if err != nil {
 		return IndexStats{}, err
 	}
 
-	if err := resolveLinks(ctx, tx); err != nil {
+	if err := resolveLinks(ctx, tx, notes, sources); err != nil {
 		return IndexStats{}, err
 	}
 
@@ -91,7 +97,7 @@ func wipeIndex(ctx context.Context, tx *sql.Tx) error {
 	return nil
 }
 
-func insertAll(ctx context.Context, tx *sql.Tx, root string, notes []vault.Note) (IndexStats, error) {
+func insertAll(ctx context.Context, tx *sql.Tx, notes []vault.Note) (IndexStats, error) {
 	var stats IndexStats
 
 	noteStmt, err := tx.PrepareContext(ctx, `
@@ -147,7 +153,7 @@ func insertAll(ctx context.Context, tx *sql.Tx, root string, notes []vault.Note)
 	defer timestampStmt.Close()
 
 	for _, n := range notes {
-		abs := filepath.Join(root, filepath.FromSlash(n.ID))
+		abs := n.PhysicalPath
 		yfm, _ := markdown.ParseFrontmatterYAML(noteBytes(ctx, abs))
 
 		typeStr := stringField(yfm.Fields, "type")
@@ -227,42 +233,167 @@ func insertAll(ctx context.Context, tx *sql.Tx, root string, notes []vault.Note)
 	return stats, nil
 }
 
-// resolveLinks runs after all notes are inserted: for each link row whose
-// to_note_path matches a known note ID (relative path) or a known note's
-// filename stem, populate to_note_id. Multi-match stem cases leave the
-// field NULL — broken-link detection / audit-links is responsible for
-// reporting those, not the retrieval index.
-func resolveLinks(ctx context.Context, tx *sql.Tx) error {
-	_, err := tx.ExecContext(ctx, `
-		UPDATE links
-		SET to_note_id = (
-			SELECT id FROM notes WHERE id = links.to_note_path
-		)
-		WHERE to_note_id IS NULL
-	`)
+// resolveLinks resolves link targets against the notes from this indexing
+// pass. Physical mappings are restricted to files already indexed, so an
+// overview alias can resolve relative peers without reading arbitrary paths.
+func resolveLinks(ctx context.Context, tx *sql.Tx, notes []vault.Note, sources []vault.Source) error {
+	resolver := newNoteLinkResolver(notes, sources)
+	rows, err := tx.QueryContext(ctx, `SELECT rowid, from_note_id, to_note_path FROM links WHERE to_note_id IS NULL`)
 	if err != nil {
-		return fmt.Errorf("%w: resolve links by path: %v", ErrIndex, err)
+		return fmt.Errorf("%w: read links: %v", ErrIndex, err)
 	}
-
-	_, err = tx.ExecContext(ctx, `
-		UPDATE links
-		SET to_note_id = (
-			SELECT id FROM notes n
-			WHERE lower(substr(n.id, instr(n.id, '/') + 1, length(n.id))) = lower(links.to_note_path) || '.md'
-			   OR lower(n.id) = lower(links.to_note_path) || '.md'
-			LIMIT 1
-		)
-		WHERE to_note_id IS NULL
-		  AND (
-		    SELECT count(*) FROM notes n
-		    WHERE lower(n.id) LIKE '%/' || lower(links.to_note_path) || '.md'
-		       OR lower(n.id) = lower(links.to_note_path) || '.md'
-		  ) = 1
-	`)
-	if err != nil {
-		return fmt.Errorf("%w: resolve links by stem: %v", ErrIndex, err)
+	type pending struct {
+		rowid  int64
+		target string
+	}
+	var updates []pending
+	for rows.Next() {
+		var rowid int64
+		var fromID, rawTarget string
+		if err := rows.Scan(&rowid, &fromID, &rawTarget); err != nil {
+			_ = rows.Close()
+			return fmt.Errorf("%w: scan link: %v", ErrIndex, err)
+		}
+		fromPhysical, ok := resolver.notes[fromID]
+		if !ok {
+			continue
+		}
+		if target, ok := resolver.resolve(fromID, fromPhysical, rawTarget); ok {
+			updates = append(updates, pending{rowid: rowid, target: target})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return fmt.Errorf("%w: read links: %v", ErrIndex, err)
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("%w: close links: %v", ErrIndex, err)
+	}
+	for _, update := range updates {
+		if _, err := tx.ExecContext(ctx, `UPDATE links SET to_note_id = ? WHERE rowid = ?`, update.target, update.rowid); err != nil {
+			return fmt.Errorf("%w: resolve link: %v", ErrIndex, err)
+		}
 	}
 	return nil
+}
+
+type noteLinkResolver struct {
+	notes map[string]string
+	// Candidate indexes use an empty value for ambiguous keys.
+	ids      map[string]string
+	names    map[string]string
+	physical map[string]string
+}
+
+func newNoteLinkResolver(notes []vault.Note, sources []vault.Source) *noteLinkResolver {
+	resolver := &noteLinkResolver{
+		notes:    make(map[string]string, len(notes)),
+		ids:      make(map[string]string, len(notes)),
+		names:    make(map[string]string, len(notes)),
+		physical: make(map[string]string, len(notes)),
+	}
+	for _, note := range notes {
+		resolver.notes[note.ID] = note.PhysicalPath
+		id := filepath.ToSlash(note.ID)
+		addLinkCandidate(resolver.ids, strings.ToLower(id), note.ID)
+		addLinkCandidate(resolver.names, strings.ToLower(path.Base(id)), note.ID)
+		if note.PhysicalPath != "" {
+			addLinkCandidate(resolver.physical, note.PhysicalPath, note.ID)
+			addSourceAliases(resolver, note.ID, note.PhysicalPath, sources)
+		}
+	}
+	return resolver
+}
+
+func addSourceAliases(resolver *noteLinkResolver, noteID, notePath string, sources []vault.Source) {
+	// Sources and note paths are already canonical from the validated walk.
+	for _, source := range sources {
+		logicalRoot := source.LogicalRoot
+		if logicalRoot == "" {
+			continue
+		}
+		sourcePath := source.PhysicalRoot
+		if notePath == sourcePath {
+			addLinkCandidate(resolver.ids, strings.ToLower(logicalRoot), noteID)
+			continue
+		}
+		rel, err := filepath.Rel(sourcePath, notePath)
+		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+			continue
+		}
+		alias := path.Join(logicalRoot, filepath.ToSlash(rel))
+		addLinkCandidate(resolver.ids, strings.ToLower(alias), noteID)
+	}
+}
+
+func (r *noteLinkResolver) resolve(fromID, fromPhysical, raw string) (string, bool) {
+	target := normalizeLinkTarget(raw)
+	if target == "" {
+		return "", false
+	}
+	hasPath := strings.Contains(target, "/")
+	if hasPath {
+		if id := r.ids[strings.ToLower(target)]; id != "" {
+			return id, true
+		}
+	}
+	if fromPhysical != "" {
+		candidate := filepath.Join(filepath.Dir(fromPhysical), filepath.FromSlash(target))
+		if id := r.physical[candidate]; id != "" {
+			return id, true
+		}
+		if resolved := physicalKey(candidate); resolved != candidate {
+			if id := r.physical[resolved]; id != "" {
+				return id, true
+			}
+		}
+	}
+	logical := path.Clean(path.Join(path.Dir(filepath.ToSlash(fromID)), target))
+	if logical != "." && logical != ".." && !strings.HasPrefix(logical, "../") {
+		if id := r.ids[strings.ToLower(logical)]; id != "" {
+			return id, true
+		}
+	}
+	if !strings.Contains(target, "/") {
+		if id := r.names[strings.ToLower(path.Base(target))]; id != "" {
+			return id, true
+		}
+	}
+	return "", false
+}
+
+func normalizeLinkTarget(raw string) string {
+	target := strings.TrimSpace(raw)
+	if target == "" || strings.Contains(target, "\\") || path.IsAbs(target) {
+		return ""
+	}
+	target = path.Clean(target)
+	if target == "." || target == ".." {
+		return ""
+	}
+	if !strings.HasSuffix(strings.ToLower(target), ".md") {
+		target += ".md"
+	}
+	return target
+}
+
+func physicalKey(name string) string {
+	abs, err := filepath.Abs(name)
+	if err != nil {
+		return filepath.Clean(name)
+	}
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		return filepath.Clean(resolved)
+	}
+	return filepath.Clean(abs)
+}
+
+func addLinkCandidate(index map[string]string, key, id string) {
+	if previous, exists := index[key]; !exists {
+		index[key] = id
+	} else if previous != id {
+		index[key] = ""
+	}
 }
 
 // noteBytes reads a file's contents, returning "" on any error. Used for

@@ -13,12 +13,6 @@ package vault
 import (
 	"context"
 	"errors"
-	"io/fs"
-	"path/filepath"
-	"sort"
-	"strings"
-
-	"sea-noise/internal/markdown"
 )
 
 // Sentinel errors. Wrap with %w when returning; callers check via errors.Is.
@@ -41,19 +35,19 @@ var LinksExcludeDirs = []string{"_rag", ".git", ".obsidian", ".claude", "templat
 
 // Note is the canonical record the walker produces.
 type Note struct {
-	// ID is the path of the note relative to the vault root, using OS
-	// separators in the source path but normalized to forward slashes
-	// here (matching the Python prototype's str(path.relative_to(VAULT))
-	// on Unix-like systems).
+	// ID is the logical path of the note relative to the vault root.
+	// Registered external sources use their explicit logical source root;
+	// they are never replaced with a physical path.
 	ID string
 
-	// Path is the same as ID for now. Kept separate so future surfaces
-	// can distinguish ID (stable identifier) from Path (filesystem
-	// location) without a schema change.
+	// Path is the logical path used by retrieval and graph callers.
 	Path string
 
+	// PhysicalPath is the resolved original file read by the walker.
+	PhysicalPath string
+
 	// Title is the resolved title: frontmatter title -> first `# heading`
-	// in body -> filename stem with dashes/underscores replaced by spaces.
+	// in body -> filename stem with dashes/underscores replaced with spaces.
 	Title string
 
 	// Tags is the space-separated tags string from the frontmatter
@@ -66,108 +60,14 @@ type Note struct {
 }
 
 // Walk visits all *.md files under root, skipping any path that contains
-// a segment in excludeDirs. Returns notes in path-sorted order to match
-// the prototype's sorted(rglob("*.md")) behavior.
-//
-// Skips empty (whitespace-only) notes, matching the prototype's
-// "if not content_raw.strip(): continue" guard in indexer.py:main().
+// a segment in excludeDirs. It does not follow arbitrary symlinks.
 func Walk(root string, excludeDirs []string) ([]Note, error) {
 	return WalkContext(context.Background(), root, excludeDirs)
 }
 
+// WalkContext is Walk with cancellation during directory walking and reads.
+// It retains the vault-root logical namespace; bridge-owned external roots
+// are added through WalkSourcesContext.
 func WalkContext(ctx context.Context, root string, excludeDirs []string) ([]Note, error) {
-	rootInfo, err := osStat(root)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, ErrVaultNotFound
-		}
-		return nil, err
-	}
-	if !rootInfo.IsDir() {
-		return nil, ErrVaultNotFound
-	}
-
-	excludeSet := make(map[string]struct{}, len(excludeDirs))
-	for _, d := range excludeDirs {
-		excludeSet[d] = struct{}{}
-	}
-
-	var paths []string
-	err = osWalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			// Skip excluded dirs entirely (don't descend).
-			if _, ok := excludeSet[d.Name()]; ok && path != root {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(d.Name(), ".md") {
-			return nil
-		}
-		// Also exclude files whose ancestor matches the exclude set.
-		// SkipDir above handles most of this, but the rel path check
-		// catches absolute-path entries that bypass dir descent (rare).
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		for _, part := range strings.Split(filepath.ToSlash(rel), "/") {
-			if _, ok := excludeSet[part]; ok {
-				return nil
-			}
-		}
-		paths = append(paths, path)
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	sort.Strings(paths)
-
-	notes := make([]Note, 0, len(paths))
-	for _, p := range paths {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		content, err := ReadFileRetryContext(ctx, p)
-		if err != nil {
-			if ctxErr := ctx.Err(); ctxErr != nil {
-				return nil, ctxErr
-			}
-			// Preserve prototype parity: unreadable notes are skipped.
-			continue
-		}
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		if strings.TrimSpace(string(content)) == "" {
-			continue
-		}
-
-		fm := markdown.ParseFrontmatter(string(content))
-		title := fm.Title
-		if title == "" {
-			rel, _ := filepath.Rel(root, p)
-			stem := strings.TrimSuffix(filepath.Base(rel), ".md")
-			title = markdown.TitleFromFilenameStem(stem)
-		}
-
-		rel, _ := filepath.Rel(root, p)
-		relSlash := filepath.ToSlash(rel)
-		notes = append(notes, Note{
-			ID:    relSlash,
-			Path:  relSlash,
-			Title: title,
-			Tags:  fm.Tags,
-			Body:  fm.Body,
-		})
-	}
-
-	return notes, nil
+	return WalkSourcesContext(ctx, root, excludeDirs, nil)
 }
