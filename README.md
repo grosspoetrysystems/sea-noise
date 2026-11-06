@@ -69,6 +69,26 @@ variable for compatibility with earlier Sea Noise development. The environment
 variable wins when both sources are set. Neither the configuration file nor the
 vault belongs in this repository. Paths must be absolute existing directories.
 
+## Link private project context
+
+Projects that use [Vernacular](https://github.com/grosspoetrysystems/vernacular)
+can appear in a persistent `vernacular/` wing at the vault root. Opt in one
+project at a time; `vern` must be on `PATH`:
+
+```sh
+./sea-noise vernacular link --key helicopter --project /absolute/path/to/helicopter
+./sea-noise index
+./sea-noise search "review"
+```
+
+The wing links to the project's editable private originals, not copies or its
+code checkout. Obsidian can navigate and edit those notes alongside personal
+reading; Sea Noise indexes their text and wikilinks. Linking does not enroll
+project notes in the personal inbox pipeline.
+
+See [the project-wing workflow](docs/cli.md#link-a-vernacular-project) for
+overview selection, safe unlinking, live refresh, and backup boundaries.
+
 ## Rollout
 
 1. Build from a clean, tagged commit and record the binary checksum.
@@ -89,11 +109,12 @@ credentials or accounts.
 
 Run `./sea-noise --help` for the current flags. The main surfaces are:
 
-| Command | Effect | Writes vault files |
+| Command | Effect | Writes |
 | --- | --- | --- |
 | `audit-links` | Report broken wikilinks | Yes |
 | `index` | Rebuild the SQLite retrieval index | Yes, outside the vault by default |
 | `search` | Query the retrieval index | No |
+| `vernacular link` / `unlink` / `list` | Manage selected projects in the vault wing | Links/navigation; may create a private overview; `list` is read-only |
 | `generate-signal` | Build the signal queue | Yes |
 | `summarize-transcripts` | Add research context to transcript notes | Yes |
 | `profile-entities` | Create entity profiles from repeated mentions | Yes |
@@ -103,7 +124,7 @@ Run `./sea-noise --help` for the current flags. The main surfaces are:
 | `process-inbox` | Classify and promote inbox notes | Yes |
 | `sync todoist` | Push or pull Todoist tasks | Yes and external API |
 | `run` | Run one named pipeline | Usually |
-| `serve` | Run scheduled pipelines as a resident process | Usually |
+| `serve` | Run scheduled pipelines, IPC and source watching | Usually |
 
 Prefer a copy of the vault and a dry-run or report-producing command when
 learning a new write path.

@@ -53,6 +53,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sea-noise search: %v\n", err)
 			os.Exit(1)
 		}
+	case "vernacular":
+		if err := runVernacular(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "sea-noise vernacular: %v\n", err)
+			os.Exit(1)
+		}
 	case "generate-signal":
 		if err := runGenerateSignal(rest); err != nil {
 			fmt.Fprintf(os.Stderr, "sea-noise generate-signal: %v\n", err)
@@ -121,6 +126,7 @@ Subcommands:
   profile-entities         generate entity profiles from repeated vault mentions
   index                    rebuild the SQLite retrieval index for the configured vault (--db PATH, optional; defaults to ~/.sea-noise/retrieval.db)
   search                   run FTS5 keyword search against the index (defaults to ~/.sea-noise/retrieval.db)
+  vernacular link|unlink|list  connect selected editable project notes under vault-root vernacular/
   generate-signal          assemble the rolling signal queue from unconsumed notes, write to signal/queue.md
   enrich-topics            write a research brief for a topic cluster; uses Cloudflare /crawl when CF_ACCOUNT_ID + CF_API_TOKEN are set, vault-only otherwise
   youtube                  hydrate notes whose source: frontmatter points at YouTube with a ## Transcript section

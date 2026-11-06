@@ -53,7 +53,7 @@ ordinary vault walking does not follow arbitrary symlinks.
 | Overview | Reuse an existing private overview or README. If none exists, create a minimal private overview for the user to fill; never invent a project description or copy canon into a second summary. |
 | Editing | Editing through the wing edits the original. Scratch context remains available to retrieval without becoming public repository content. |
 | Detach | Remove only recorded links and unchanged generated navigation; preserve originals and user-edited files. |
-| Automation | Default write-producing workflows exclude the root wing. Source enrollment is not permission to triage, enrich or rewrite those notes. |
+| Automation | Default deterministic scans exclude the wing; the inbox skill is instructed to do so. Inference executables are trusted, not filesystem-sandboxed. Explicit single-note commands may write through supplied paths. |
 | Watch recovery | Watch selected targets and new directories. Suspend invalid mappings and observe restoration through safe existing ancestors, without following replacement symlinks into unselected trees. |
 | Cache | A failed refresh leaves the last successful SQLite snapshot intact and reports the error; cached results are not proof that a source is currently available. |
 

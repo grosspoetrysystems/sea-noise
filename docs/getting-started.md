@@ -58,3 +58,10 @@ Commands dispatch from `cmd/sea-noise/main.go`. Many
 subcommands write vault files — see the write column in
 [CLI commands and workflows](cli.md). When learning a new write path, prefer a
 copy of the vault and a report-producing or `--dry-run` invocation.
+
+## Optional project context
+
+Already using Vernacular for private project notes? Follow
+[Link a Vernacular project](cli.md#link-a-vernacular-project) to expose only the
+projects you choose in a persistent vault-root wing. Notes remain live,
+editable originals; this is separate from inbox processing.

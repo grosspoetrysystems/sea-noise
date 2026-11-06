@@ -28,8 +28,8 @@ boundaries).
 
 ## Surfaces
 
-- [CLI commands and workflows](cli.md) — every product-facing subcommand,
-  which ones write vault files, and safe-learning guidance. The test/parity-only
+- [CLI commands and workflows](cli.md) — product-facing commands, write
+  boundaries, and optional Vernacular project enrollment. The test/parity-only
   `parity-discover` command is intentionally outside this workflow guide.
 - [Daemon](daemon.md) — lifecycle, internal scheduler, IPC verbs, and the
   filesystem watcher.

@@ -76,8 +76,9 @@ non-dry-run `daily` and `weekly` runs; `inbox` has no marker. Executed
 non-deferred steps log their name, start time, duration, and status. Deferred
 steps instead log `DEFERRED (no Go port yet)`, while dry-run steps log
 `[DRY-RUN] ... — would run`; both formats omit execution timing and status.
-Dry-run still creates or appends the processing log. The exact same step lists
-are available as `sea-noise run inbox|daily|weekly` for one-shot debugging.
+Dry-run still creates or appends the processing log. It does not disable watcher
+index refreshes. The same step lists are available as
+`sea-noise run inbox|daily|weekly` for one-shot debugging.
 
 ## Local IPC
 
@@ -103,11 +104,28 @@ agent-agnostic: it does not know which CLI or harness connected.
 
 ## Filesystem watcher
 
-The watcher uses `fsnotify` and a configurable debounce window. A new note in
-`inbox/` triggers the inbox pipeline. Current `serve` wiring does not claim
-incremental re-indexing for every modified note; the full index pipeline
-remains the explicit refresh path. Removed or modified-note behavior should be
-checked against the current watcher implementation before relying on it.
+The watcher uses `fsnotify` and a configurable debounce window. It watches the
+vault and the resolved originals of explicitly linked Vernacular projects.
+
+| Event | Action |
+| --- | --- |
+| New note in the vault's root `inbox/` | Settle the capture, then trigger the inbox pipeline |
+| Note creation, edit, removal, or a new target directory | Rebuild the derived retrieval index |
+| Project link, unlink, or restored target | Re-resolve source membership and rebuild after validation |
+| A linked project's own `inbox/` | Index it as project context; never dispatch the vault inbox pipeline |
+
+Refreshes are full, serialized rebuilds, not incremental updates. Watcher, IPC
+and scheduled index writes share that serialization within the daemon process.
+Independent `sea-noise index` processes are not covered by the in-process lock.
+Use `--no-watch` to disable filesystem watching; `--dry-run` only skips pipeline
+steps and does not prevent these cache writes.
+
+If a linked source cannot be validated, the daemon logs the error and suspends
+external-source observation without following replacement symlinks. It keeps
+safe ancestor watches so restored targets can be validated again. The previous
+successful index may remain stale until a rebuild succeeds; a logged refresh
+failure is not a successful update. Restore the source or unlink and enroll the
+correct checkout. Invalid linked sources at startup prevent watcher startup.
 
 ## Failure boundaries
 

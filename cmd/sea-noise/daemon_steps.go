@@ -2,15 +2,11 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	_ "modernc.org/sqlite"
 
 	"sea-noise/internal/ai/skill"
 	"sea-noise/internal/auditlinks"
@@ -20,7 +16,6 @@ import (
 	"sea-noise/internal/entityprofile"
 	"sea-noise/internal/fetchstub"
 	"sea-noise/internal/inboxprocess"
-	"sea-noise/internal/retrieval"
 	"sea-noise/internal/signal"
 	"sea-noise/internal/summarizer"
 	"sea-noise/internal/todoist"
@@ -84,18 +79,7 @@ func buildRegistry(deps daemonStepDeps) daemon.Registry {
 		if indexDBPathErr != nil {
 			return indexDBPathErr
 		}
-		if err := os.MkdirAll(filepath.Dir(deps.IndexDBPath), 0o755); err != nil {
-			return fmt.Errorf("mkdir %s: %w", filepath.Dir(deps.IndexDBPath), err)
-		}
-		db, err := sql.Open("sqlite", deps.IndexDBPath)
-		if err != nil {
-			return fmt.Errorf("open db: %w", err)
-		}
-		defer db.Close()
-		if err := retrieval.Migrate(ctx, db); err != nil {
-			return err
-		}
-		_, err = retrieval.IndexVault(ctx, db, v, nil)
+		_, err := rebuildIndex(ctx, v, deps.IndexDBPath)
 		return err
 	}
 	signalStep := func(ctx context.Context) error {

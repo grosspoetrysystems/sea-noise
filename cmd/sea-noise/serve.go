@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"sea-noise/internal/daemon"
 	"sea-noise/internal/ipc"
 	"sea-noise/internal/todoist"
+	"sea-noise/internal/vernacular"
 	"sea-noise/internal/watcher"
 )
 
@@ -36,7 +38,7 @@ func runServe(args []string) error {
 	cliCommand := fs.String("cli-command", "", "executable for the inference CLI (e.g., claude, codex). When unset, steps requiring inference report a missing dependency.")
 	cliArgsList := fs.String("cli-args", "-p,{PROMPT},--dangerously-skip-permissions", "comma-separated argv template; {PROMPT} substituted")
 	timeoutSec := fs.Int("timeout", 1800, "per-inference-call timeout in seconds")
-	dryRun := fs.Bool("dry-run", false, "log every step that would run without executing any side effects")
+	dryRun := fs.Bool("dry-run", false, "log pipeline steps without executing them; watcher index refreshes and processing logs still write")
 	indexDB := fs.String("index-db", "", "SQLite path for the retrieval index (default ~/.sea-noise/retrieval.db)")
 	socket := fs.String("socket", "", "Unix-socket path for the JSON-RPC IPC surface (default $SEA_NOISE_SOCKET or ~/.sea-noise/daemon.sock). Empty uses the default path.")
 	noIPC := fs.Bool("no-ipc", false, "disable the IPC listener entirely")
@@ -75,7 +77,7 @@ func runServe(args []string) error {
 
 	var w *watcher.Watcher
 	if !*noWatch {
-		w, err = startWatcher(ctx, srv, deps.VaultRoot, time.Duration(*debounceMs)*time.Millisecond)
+		w, err = startWatcher(ctx, srv, deps, time.Duration(*debounceMs)*time.Millisecond)
 		if err != nil {
 			if ipcSrv != nil {
 				_ = ipcSrv.Stop()
@@ -96,15 +98,23 @@ func runServe(args []string) error {
 	return srv.Stop()
 }
 
-// startWatcher wires the fsnotify vault watcher to fire
-// daemon.PipelineInbox on new inbox files. Re-index callbacks are
-// stubbed until the per-note retrieval refresh seam lands (today the
-// index pipeline rebuilds the whole DB in one transaction, so per-
-// note re-index is a separate workflow we add when retrieval gains
-// incremental updates).
-func startWatcher(ctx context.Context, srv *daemon.Server, vaultRoot string, debounce time.Duration) (*watcher.Watcher, error) {
-	w, err := watcher.New(watcher.Config{
-		VaultRoot: vaultRoot,
+// startWatcher keeps registered project targets separate from the vault's
+// inbox pipeline. All note and membership changes refresh the derived index.
+func startWatcher(ctx context.Context, srv *daemon.Server, deps daemonStepDeps, debounce time.Duration) (*watcher.Watcher, error) {
+	sources, err := vernacular.Sources(ctx, deps.VaultRoot)
+	if err != nil {
+		return nil, fmt.Errorf("watcher sources: %w", err)
+	}
+	refresh := func(ctx context.Context) {
+		if _, err := rebuildIndex(ctx, deps.VaultRoot, deps.IndexDBPath); err != nil {
+			fmt.Printf("sea-noise watch index refresh: %v\n", err)
+		}
+	}
+	var sourceChangeMu sync.Mutex
+	var w *watcher.Watcher
+	w, err = watcher.New(watcher.Config{
+		VaultRoot: deps.VaultRoot,
+		Sources:   sources,
 		Debounce:  debounce,
 		Actions: watcher.Actions{
 			OnInboxCreate: func(ctx context.Context, _ string) {
@@ -112,6 +122,28 @@ func startWatcher(ctx context.Context, srv *daemon.Server, vaultRoot string, deb
 					!errors.Is(err, daemon.ErrSkippedAlreadyRan) {
 					fmt.Printf("sea-noise watch inbox pipeline: %v\n", err)
 				}
+			},
+			OnNoteModify: func(ctx context.Context, path string) {
+				if _, ok := w.LogicalPath(path); ok {
+					refresh(ctx)
+				}
+			},
+			OnSourcesChange: func(ctx context.Context) {
+				sourceChangeMu.Lock()
+				defer sourceChangeMu.Unlock()
+				sources, err := vernacular.Sources(ctx, deps.VaultRoot)
+				if err != nil {
+					if suspendErr := w.SuspendSources(); suspendErr != nil {
+						fmt.Printf("sea-noise watch suspend sources: %v\n", suspendErr)
+					}
+					fmt.Printf("sea-noise watch sources: %v\n", err)
+					return
+				}
+				if err := w.ReloadSources(sources); err != nil {
+					fmt.Printf("sea-noise watch reload sources: %v\n", err)
+					return
+				}
+				refresh(ctx)
 			},
 		},
 	})
@@ -121,7 +153,7 @@ func startWatcher(ctx context.Context, srv *daemon.Server, vaultRoot string, deb
 	if err := w.Start(ctx); err != nil {
 		return nil, fmt.Errorf("watcher start: %w", err)
 	}
-	fmt.Printf("sea-noise watching %s (debounce %s)\n", vaultRoot, debounce)
+	fmt.Printf("sea-noise watching %s (debounce %s)\n", deps.VaultRoot, debounce)
 	return w, nil
 }
 
