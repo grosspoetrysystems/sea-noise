@@ -7,6 +7,7 @@ This document is the architectural anchor for the public runtime.
 
 In scope:
 - Retrieval substrate decision and rationale
+- Selected private project sources and logical note identity
 - Vault-derived SQL schema (tables and their purpose)
 - Retrieval router interface (mode enumeration)
 - Embedder interface (the optional semantic layer contract)
@@ -61,15 +62,28 @@ Explicit non-substrate choices (forbidden as foundational):
 - Any standalone vector DB
 - Any Python compatibility bridge for retrieval (see §8)
 
+### Selected project context
+
+The opt-in Vernacular wing exposes private project notes through validated
+logical-to-physical source mappings. Retrieval reads the original overview,
+apparatus and working notes without importing the code checkout or copying
+content. IDs stay vault-relative under `vernacular/<key>/`; the overview alias
+and its original resolve to one indexed note. Ordinary workflow scans exclude
+the root wing. See [project-source boundaries](docs/architecture.md#selected-project-sources)
+and [enrollment](docs/cli.md#link-a-vernacular-project).
+
 ## 3. Vault-derived SQL schema
 
-The schema is a derived index over the markdown vault. The vault remains the source of truth — Sea Noise never edits notes; it reads them. The SQL index is rebuildable from the vault state at any time.
+The schema is a derived index over the vault and explicitly selected project
+notes. Markdown originals remain the source of truth; retrieval indexing and
+queries read them without editing. Other commands may write notes, as documented
+in the [CLI guide](docs/cli.md). The SQL index is rebuildable from those sources.
 
 Tables:
 
 | Table | Purpose | Key columns |
 |-------|---------|-------------|
-| `notes` | One row per markdown note in the vault | `id`, `path`, `type`, `mtime`, `frontmatter_json` |
+| `notes` | One row per indexed Markdown note, including selected external originals under logical vault-relative IDs | `id`, `path`, `type`, `mtime`, `frontmatter_json` |
 | `chunks` | Chunked note bodies for FTS5 retrieval at sub-note granularity | `id`, `note_id`, `ordinal`, `body` |
 | `tags` | One row per (note, tag) pair | `note_id`, `tag` |
 | `entities` | Extracted entities, linked to notes | `id`, `note_id`, `surface`, `canonical_form` |

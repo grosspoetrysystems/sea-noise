@@ -387,6 +387,11 @@ func extractEntityCounts(vaultRoot string) (map[string]int, error) {
 				return nil
 			}
 		}
+		// The bridge wing is a distinct logical root, not a generic
+		// basename exclusion. Automatic entity discovery never reads it.
+		if rel == "vernacular" && info.IsDir() {
+			return filepath.SkipDir
+		}
 		if info.IsDir() || !strings.HasSuffix(info.Name(), ".md") {
 			return nil
 		}

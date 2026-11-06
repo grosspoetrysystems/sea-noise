@@ -164,9 +164,14 @@ func EnrichTopic(ctx context.Context, exec *skill.Executor, crawler Crawler, in 
 //     '-' → ' '
 func collectNotesForTopic(vaultRoot, topic string) ([]matchedNote, error) {
 	var out []matchedNote
+	wingRoot := filepath.Join(vaultRoot, "vernacular")
 	err := filepath.WalkDir(vaultRoot, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
+		}
+		// Exclude only the root wing, not personal folders of the same name.
+		if d.IsDir() && path == wingRoot {
+			return fs.SkipDir
 		}
 		if d.IsDir() {
 			if _, skip := excludeDirs[d.Name()]; skip && path != vaultRoot {

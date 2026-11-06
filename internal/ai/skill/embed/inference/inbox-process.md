@@ -14,6 +14,8 @@ outputs:
 You are processing the inbox/ folder of a personal knowledge vault rooted at:
 
 {{.VaultRoot}}
+The bridge-owned `{{.VaultRoot}}/vernacular/` wing is not part of this automatic inbox workflow. Do not read, edit, move, promote, or use files under it as workflow input; process only `{{.VaultRoot}}/inbox/` and write normal workflow outputs outside that wing.
+
 
 Read the vault's CLAUDE.md (or AGENTS.md) for the full tag taxonomy, content-type rules, and atlas/ conventions. This skill is the operational invocation of the "process my inbox" command described there. Follow the conventions verbatim.
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -45,6 +46,12 @@ type CLITransport struct {
 	// (matches the prototype's claude -p timeout).
 	Timeout time.Duration
 
+	// MaxStdoutBytes limits captured stdout bytes. Zero leaves stdout unbounded.
+	MaxStdoutBytes int
+
+	// MaxStderrBytes limits retained stderr bytes. Zero leaves stderr unbounded.
+	MaxStderrBytes int
+
 	// EnvOverrides are extra env vars merged on top of the parent
 	// process's environment. An empty-string value sets the var to
 	// empty (rather than unsetting). e.g., {"CLAUDECODE": ""} for
@@ -77,10 +84,27 @@ func (c *CLITransport) Run(ctx context.Context, _ inferencerouter.InferenceDecis
 	cmd.Env = mergeEnv(os.Environ(), c.EnvOverrides)
 
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	var stdoutLimited *boundedWriter
+	var stdoutWriter io.Writer = &stdout
+	if c.MaxStdoutBytes > 0 {
+		stdoutLimited = &boundedWriter{
+			buf:        &stdout,
+			limit:      c.MaxStdoutBytes,
+			onOverflow: cancel,
+		}
+		stdoutWriter = stdoutLimited
+	}
+	var stderrWriter io.Writer = &stderr
+	if c.MaxStderrBytes > 0 {
+		stderrWriter = &boundedWriter{buf: &stderr, limit: c.MaxStderrBytes}
+	}
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderrWriter
 
 	err := cmd.Run()
+	if stdoutLimited != nil && stdoutLimited.overflowed {
+		return "", ErrOutputLimit
+	}
 	if err != nil {
 		if errors.Is(callCtx.Err(), context.DeadlineExceeded) {
 			return "", fmt.Errorf("%w: %v", ErrTimeout, err)
@@ -100,6 +124,33 @@ func (c *CLITransport) Run(ctx context.Context, _ inferencerouter.InferenceDecis
 		return "", ErrEmptyResponse
 	}
 	return response, nil
+}
+
+type boundedWriter struct {
+	buf        *bytes.Buffer
+	limit      int
+	onOverflow func()
+	overflowed bool
+}
+
+func (w *boundedWriter) Write(p []byte) (int, error) {
+	remaining := w.limit - w.buf.Len()
+	if remaining > 0 {
+		keep := len(p)
+		if keep > remaining {
+			keep = remaining
+		}
+		if keep > 0 {
+			_, _ = w.buf.Write(p[:keep])
+		}
+	}
+	if len(p) > remaining && !w.overflowed {
+		w.overflowed = true
+		if w.onOverflow != nil {
+			w.onOverflow()
+		}
+	}
+	return len(p), nil
 }
 
 // substitutePrompt replaces the first occurrence of "{PROMPT}" in args

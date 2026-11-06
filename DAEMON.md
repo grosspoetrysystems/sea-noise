@@ -71,18 +71,28 @@ The same step lists are exposed as one-shot CLI subcommands
 operation. Both paths call into the same daemon registry.
 
 A `--dry-run` flag logs every step that would run without invoking any step
-function. It still appends a processing log.
+function. It still appends a processing log; filesystem-triggered index
+refreshes also remain enabled.
 
 Processing logs (`_meta/processing-logs/YYYY-MM-DD.md`) record step name,
 start time, duration, and exit status for each run.
 
 ## Filesystem watcher
 
-The daemon watches the vault path via `fsnotify` for new inbox files.
+The daemon watches the vault and explicitly linked Vernacular originals via
+`fsnotify`.
 
-- **New note in `inbox/`** — triggers the inbox pipeline.
-- **Modified or removed notes** — no per-note retrieval update is currently
-  wired; run `sea-noise index` to rebuild the full index.
+- **New note in the vault's root `inbox/`** — triggers the inbox pipeline.
+- **Created, modified or removed notes; new target directories** — refresh the
+  full retrieval index.
+- **Project membership changes** — re-resolve and validate source paths before
+  refreshing. A project's own `inbox/` never triggers the vault inbox pipeline.
+
+Watcher, IPC and scheduled refreshes serialize within the daemon process.
+This is a full-rebuild path, not incremental indexing or a cross-process lock.
+Failed source validation suspends external-source observation while retaining
+safe restoration watches; failed rebuilds can leave the last successful index
+stale. See [the daemon guide](docs/daemon.md#filesystem-watcher) for recovery.
 
 Events debounce at the configured interval (default 200ms), then the watcher
 waits for the inbox's markdown snapshot to remain unchanged for 500ms before
@@ -115,7 +125,7 @@ The runtime accepts these command-line controls:
 - `serve --no-ipc` to disable IPC;
 - `serve --no-watch` to disable the filesystem watcher;
 - `serve --watch-debounce-ms N` to set watcher debounce;
-- `serve --dry-run` to log steps without invoking them;
+- `serve --dry-run` to skip pipeline steps (watcher index writes still run);
 - `serve --index-db PATH` to select the retrieval index;
 - `serve --cli-command NAME` and `serve --cli-args ...` for inference.
 

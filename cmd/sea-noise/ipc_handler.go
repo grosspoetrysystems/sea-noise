@@ -122,18 +122,10 @@ func (h *ipcHandler) VaultQuery(ctx context.Context, params ipc.VaultQueryParams
 	return ipc.VaultQueryResult{Mode: resp.Mode.String(), Hits: hits}, nil
 }
 
-// IndexRefresh re-indexes the vault. Migrate is idempotent; IndexVault
-// returns counts the wire surfaces as IndexRefreshResult.
+// IndexRefresh rebuilds the same source-aware index used by CLI and
+// scheduled refreshes. Rebuilds are serialized with watcher refreshes.
 func (h *ipcHandler) IndexRefresh(ctx context.Context) (ipc.IndexRefreshResult, error) {
-	db, err := sql.Open("sqlite", h.indexDBPath)
-	if err != nil {
-		return ipc.IndexRefreshResult{}, fmt.Errorf("open index: %w", err)
-	}
-	defer db.Close()
-	if err := retrieval.Migrate(ctx, db); err != nil {
-		return ipc.IndexRefreshResult{}, err
-	}
-	stats, err := retrieval.IndexVault(ctx, db, h.vaultRoot, nil)
+	stats, err := rebuildIndex(ctx, h.vaultRoot, h.indexDBPath)
 	if err != nil {
 		return ipc.IndexRefreshResult{}, err
 	}

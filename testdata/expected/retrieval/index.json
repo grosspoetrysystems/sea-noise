@@ -264,7 +264,8 @@
     },
     {
       "from_note_id": "notes/references/2026-03-09-roasted-vegetables.md",
-      "to_note_path": "2026-03-10-go-tools"
+      "to_note_path": "2026-03-10-go-tools",
+      "to_note_id": "notes/references/2026-03-10-go-tools.md"
     }
   ],
   "entities": null,

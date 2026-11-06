@@ -107,10 +107,16 @@ type Hit struct {
 }
 
 // Router is the single entry point for any caller that needs notes or
-// chunks. The router does not orchestrate — it picks a mode and
-// dispatches. It never invokes an LLM.
+// chunks. The router does not orchestrate — it picks a mode and dispatches. It
+// never invokes an LLM.
 type Router interface {
 	Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error)
+}
+
+// Queryer is the minimal read-query surface shared by *sql.DB and *sql.Tx.
+type Queryer interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 // Sentinel errors. Wrap with %w; check with errors.Is.
@@ -124,15 +130,16 @@ var (
 // and ModeFTSSearch in this wave. Other modes return ErrUnsupportedMode
 // until they land in subsequent waves.
 type SQLiteRouter struct {
-	DB *sql.DB
+	DB Queryer
 
 	// DefaultLimit is the limit applied when RetrieveRequest.Limit == 0.
 	// Defaults to 20 when zero.
 	DefaultLimit int
 }
 
-// NewSQLiteRouter is a convenience constructor.
-func NewSQLiteRouter(db *sql.DB) *SQLiteRouter {
+// NewSQLiteRouter is a convenience constructor for a database or transaction
+// query handle.
+func NewSQLiteRouter(db Queryer) *SQLiteRouter {
 	return &SQLiteRouter{DB: db, DefaultLimit: 20}
 }
 

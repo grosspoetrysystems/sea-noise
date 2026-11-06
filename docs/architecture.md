@@ -8,6 +8,11 @@ sources:
   - resource: internal/retrieval/schema.go
   - resource: internal/ai/inferencerouter/types.go
   - resource: internal/ai/embedder/embedder.go
+  - resource: internal/discovery/discovery.go
+  - resource: internal/ai/transport/cli.go
+  - resource: internal/vernacular/bridge.go
+  - resource: internal/vault/sources.go
+  - resource: internal/watcher/watcher.go
 ---
 # Architecture and boundaries
 
@@ -33,8 +38,38 @@ Two further modes are declared but not wired: deterministic context building for
 a workflow ID and optional semantic expansion both return an unsupported-mode
 error until later waves land them.
 
-Routing is deterministic and does not invoke an LLM. `sea-noise index` builds or
-refreshes the SQLite index, and `sea-noise search` queries it.
+The retrieval router's routing is deterministic and does not invoke an LLM.
+`sea-noise index` builds or refreshes the SQLite index, and `sea-noise search`
+queries it.
+
+`discover` composes the implemented FTS and graph modes with a bounded,
+source-grounded inference pass. Its `--expand` option asks the configured
+inference executable for additional query strings; it does not wire the
+router's `ModeOptionalSemanticExpansion`, which remains unsupported here.
+Discovery uses indexed SQLite passages only and never turns model output into
+stored graph edges.
+
+## Selected project sources
+
+The Vernacular bridge exposes selected project notes under the vault-root
+`vernacular/` wing. These are symlinks to editable originals, not copied notes
+or an inbox. SQLite indexes explicit logical-to-physical source mappings;
+ordinary vault walking does not follow arbitrary symlinks.
+
+| Boundary | Contract |
+| --- | --- |
+| Enrollment | Resolve `vern path canon`, `apparatus`, and `working` from the selected checkout; do not parse Vernacular's private registry. |
+| Identity | Indexed IDs stay vault-relative. An overview alias and its original source path resolve to one indexed note. |
+| Overview | Reuse an existing private overview or README. If none exists, create a minimal private overview for the user to fill; never invent a project description or copy canon into a second summary. |
+| Editing | Editing through the wing edits the original. Scratch context remains available to retrieval without becoming public repository content. |
+| Detach | Remove only recorded links and unchanged generated navigation; preserve originals and user-edited files. |
+| Automation | Default deterministic scans exclude the wing; the inbox skill is instructed to do so. Inference executables are trusted, not filesystem-sandboxed. Explicit single-note commands may write through supplied paths. |
+| Watch recovery | Watch selected targets and new directories. Suspend invalid mappings and observe restoration through safe existing ancestors, without following replacement symlinks into unselected trees. |
+| Cache | A failed refresh leaves the last successful SQLite snapshot intact and reports the error; cached results are not proof that a source is currently available. |
+
+Qualified links and source-local relative links take precedence over a unique
+global basename. Ambiguous bare names stay unresolved rather than binding to
+an unrelated personal or project note.
 
 ## Router seam versus prototype parity
 
