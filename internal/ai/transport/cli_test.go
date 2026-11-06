@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,6 +78,71 @@ func TestCLITransport_Run_Timeout(t *testing.T) {
 	_, err := tx.Run(context.Background(), inferencerouter.InferenceDecision{}, "prompt")
 	if !errors.Is(err, ErrTimeout) {
 		t.Errorf("err = %v, want errors.Is(err, ErrTimeout)", err)
+	}
+}
+
+func TestCLITransport_Run_StdoutLimitCancelsBeforeDeadline(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	tx := &CLITransport{
+		Command:        "sh",
+		Args:           []string{"-c", "printf 12345; exec sleep 30"},
+		Timeout:        5 * time.Second,
+		MaxStdoutBytes: 4,
+	}
+	_, err := tx.Run(ctx, inferencerouter.InferenceDecision{}, "prompt")
+	if !errors.Is(err, ErrOutputLimit) {
+		t.Fatalf("Run error = %v, want ErrOutputLimit", err)
+	}
+	if ctx.Err() != nil {
+		t.Fatalf("Run waited for the caller deadline: %v", ctx.Err())
+	}
+}
+
+func TestCLITransport_Run_StdoutLimitAtBoundaryAccepted(t *testing.T) {
+	tx := &CLITransport{
+		Command:        "sh",
+		Args:           []string{"-c", "printf 1234"},
+		Timeout:        5 * time.Second,
+		MaxStdoutBytes: 4,
+	}
+	got, err := tx.Run(context.Background(), inferencerouter.InferenceDecision{}, "prompt")
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if got != "1234" {
+		t.Errorf("Run = %q, want %q", got, "1234")
+	}
+}
+
+func TestCLITransport_Run_StderrLimitBoundsRetainedPrefix(t *testing.T) {
+	run := func(script string, maxStderrBytes int) error {
+		tx := &CLITransport{
+			Command:        "sh",
+			Args:           []string{"-c", script},
+			Timeout:        5 * time.Second,
+			MaxStdoutBytes: 2,
+			MaxStderrBytes: maxStderrBytes,
+		}
+		_, err := tx.Run(context.Background(), inferencerouter.InferenceDecision{}, "prompt")
+		return err
+	}
+
+	boundedErr := run("printf ok; printf 1234567890 >&2; exit 1", 4)
+	unboundedErr := run("printf ok; printf 1234567890 >&2; exit 1", 0)
+	for name, err := range map[string]error{
+		"bounded":   boundedErr,
+		"unbounded": unboundedErr,
+	} {
+		if !errors.Is(err, ErrNonZeroExit) {
+			t.Fatalf("%s stderr case error = %v, want ErrNonZeroExit", name, err)
+		}
+	}
+	if !strings.Contains(boundedErr.Error(), "1234") || strings.Contains(boundedErr.Error(), "12345") {
+		t.Errorf("bounded stderr did not retain exactly the four-byte diagnostic prefix: %v", boundedErr)
+	}
+	if !strings.Contains(unboundedErr.Error(), "1234567890") {
+		t.Errorf("zero stderr limit did not retain the full diagnostic: %v", unboundedErr)
 	}
 }
 

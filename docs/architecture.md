@@ -8,6 +8,8 @@ sources:
   - resource: internal/retrieval/schema.go
   - resource: internal/ai/inferencerouter/types.go
   - resource: internal/ai/embedder/embedder.go
+  - resource: internal/discovery/discovery.go
+  - resource: internal/ai/transport/cli.go
   - resource: internal/vernacular/bridge.go
   - resource: internal/vault/sources.go
   - resource: internal/watcher/watcher.go
@@ -36,8 +38,16 @@ Two further modes are declared but not wired: deterministic context building for
 a workflow ID and optional semantic expansion both return an unsupported-mode
 error until later waves land them.
 
-Routing is deterministic and does not invoke an LLM. `sea-noise index` builds or
-refreshes the SQLite index, and `sea-noise search` queries it.
+The retrieval router's routing is deterministic and does not invoke an LLM.
+`sea-noise index` builds or refreshes the SQLite index, and `sea-noise search`
+queries it.
+
+`discover` composes the implemented FTS and graph modes with a bounded,
+source-grounded inference pass. Its `--expand` option asks the configured
+inference executable for additional query strings; it does not wire the
+router's `ModeOptionalSemanticExpansion`, which remains unsupported here.
+Discovery uses indexed SQLite passages only and never turns model output into
+stored graph edges.
 
 ## Selected project sources
 

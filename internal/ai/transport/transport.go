@@ -27,6 +27,9 @@ var (
 	// ErrTimeout is returned when the inference call exceeds its deadline.
 	ErrTimeout = errors.New("inference timed out")
 
+	// ErrOutputLimit is returned when stdout exceeds its configured byte limit.
+	ErrOutputLimit = errors.New("transport stdout limit exceeded")
+
 	// ErrNonZeroExit is returned when the underlying CLI exits non-zero.
 	ErrNonZeroExit = errors.New("transport exited non-zero")
 

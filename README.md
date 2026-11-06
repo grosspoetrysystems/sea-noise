@@ -114,6 +114,7 @@ Run `./sea-noise --help` for the current flags. The main surfaces are:
 | `audit-links` | Report broken wikilinks | Yes |
 | `index` | Rebuild the SQLite retrieval index | Yes, outside the vault by default |
 | `search` | Query the retrieval index | No |
+| [`discover`](docs/cli.md#discover-indexed-connections) | Optional grounded connection candidates from indexed notes; requires an explicit read-only inference CLI | No for Sea Noise; configured executable is a trust boundary |
 | `vernacular link` / `unlink` / `list` | Manage selected projects in the vault wing | Links/navigation; may create a private overview; `list` is read-only |
 | `generate-signal` | Build the signal queue | Yes |
 | `summarize-transcripts` | Add research context to transcript notes | Yes |
